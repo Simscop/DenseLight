@@ -1,0 +1,34 @@
+﻿<Window x:Class="DenseLight.Shell"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:DenseLight"
+        xmlns:vm="clr-namespace:DenseLight.ViewModels"
+        mc:Ignorable="d"       
+        d:DataContext="{d:DesignInstance vm:ShellViewModel, IsDesignTimeCreatable=True}"
+        Title="Shell" Height="450" Width="800">
+    <Border>
+        <StackPanel>
+            <TextBlock 
+                Text="Welcome to DenseLight!" 
+                FontSize="24" 
+                Margin="10" 
+                HorizontalAlignment="Center"/>
+
+            <TextBlock Text="Connection Status: "/>
+            <TextBlock Text="{Binding ConnectionStatus}" Margin="10"/>
+            <TextBlock Text="Current Position: "/>
+            <TextBlock Text="{Binding CurrentX, StringFormat='X: {0:F2}'}"/>
+            <TextBlock Text="{Binding CurrentY, StringFormat='Y: {0:F2}'}"/>
+            <TextBlock Text="{Binding CurrentZ, StringFormat='Z: {0:F2}'}"/>
+
+            <Button Command="{Binding AutoFocusCommand}" Content="Auto Focus"/>
+
+            <Button Command="{Binding MoveToPositionCammand}" Content="Move to Position" Margin="10"/> 
+
+
+        </StackPanel>
+    </Border>
+    
+</Window>

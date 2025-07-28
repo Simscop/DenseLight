@@ -1,0 +1,16 @@
+# 忽略所有 bin 和 obj 目录
+bin/
+**/bin/
+
+obj/
+**/obj/
+
+# 可选：忽略 .vs 文件夹（Visual Studio 临时文件）
+**/.vs/
+
+# 忽略所有 .obj 文件
+*.obj
+
+# 可选：忽略用户设置文件
+*.user
+*.suo
