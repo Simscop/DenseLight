@@ -53,9 +53,7 @@ public partial class ShellViewModel : ObservableObject
         try
         {
             _motor.ReadPosition();
-            CurrentX = _motor.X;
-            CurrentY = _motor.Y;
-            CurrentZ = _motor.Z;
+
         }
         catch (Exception ex)
         {
@@ -67,6 +65,6 @@ public partial class ShellViewModel : ObservableObject
     {
         // Cleanup resources if necessary
         _motor.Stop();
-    }    
+    }
 
 }

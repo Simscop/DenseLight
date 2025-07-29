@@ -1,91 +1,184 @@
 ﻿using DenseLight.Services;
+using Zaber.Motion.Ascii;
 
 namespace DenseLight.Devices
 {
     public class ZaberMotorService : IMotor
     {
         // TODO 所有硬件使用异步调用，避免阻塞UI线程 添加位置边界检查和错误处理 使用CancellationToken支持取消操作
+        // var connection = Connection.OpenSerialPort("COM3");
+        // var device = connection.GetDevice(1);
+        // var axis = device.GetAxis(1);
+        // var axisGroup = new AxisGroup(new Axis[] { axis });
+        public double X { get; set; }
+        public double Y { get; set; }
+        public double Z { get; set; }
 
+        private AxisGroup _axisGroup;
 
-        public double X => throw new NotImplementedException();
+        private Axis? _xAxis;
 
-        public double Y => throw new NotImplementedException();
+        private Axis? _yAxis;
 
-        public double Z => throw new NotImplementedException();
+        private Axis? _zAxis;
+
+        private Connection Connection { get; set; }
+
+        public string _port = "COM3";
+
+        private Device[]? deviceList;
+
+        public enum MotionState
+        {
+            Busy,
+            Idle,
+            Home
+        }
+
+        public Zaber.Motion.Units Units { get; set; } = Zaber.Motion.Units.Length_Nanometres;
+
+        public Zaber.Motion.Units vUnits { get; set; } = Zaber.Motion.Units.Velocity_NanometresPerSecond;
 
         public bool GetErrorCommand()
         {
-            throw new NotImplementedException();
+            return false;
         }
 
-        public bool GetMotionState()
+        Services.MotionState IMotor.GetMotionState()
         {
-            throw new NotImplementedException();
+            bool isBusy = _axisGroup.IsBusy();
+            if (isBusy) return Services.MotionState.Busy;
+            bool isHomed = _axisGroup.IsHomed();
+            return isHomed ? Services.MotionState.Home : Services.MotionState.Idle;
+
         }
 
         public bool HasMovedIntoPosition()
         {
-            throw new NotImplementedException();
+            bool isBusy = _axisGroup.IsBusy();
+            if (isBusy)
+            {
+                _axisGroup.WaitUntilIdle();
+                return false;
+            }
+            else
+            {
+                return true;
+            }
         }
 
         public void InitMotor(out string connectionState)
         {
-            throw new NotImplementedException();
+            if (Connection == null)
+            {
+                Connection = Connection.OpenSerialPort(_port);
+                Connection.EnableAlerts();
+                deviceList = Connection.DetectDevices(true);
+            }
+
+            Console.WriteLine($"Found {deviceList?.Length} devices.");
+
+            _zAxis = deviceList?.FirstOrDefault()?.GetAxis(1); // Assuming the first device has an axis 1
+            _yAxis = deviceList?.FirstOrDefault()?.GetAxis(2); // Assuming the first device has an axis 2
+            _xAxis = deviceList?.FirstOrDefault()?.GetAxis(3); // Assuming the first device has an axis 3
+
+            connectionState = "Connected to Zaber Motor Service";
+
         }
 
         public void ReadPosition()
         {
-            throw new NotImplementedException();
+            // TODO 支持异步调用，按顺序请求坐标，在轴停止后调用 axisGroup.GetPosition(params unit)
+
+            X = _xAxis?.GetPosition(Units) ?? double.NaN;
+            Y = _yAxis?.GetPosition(Units) ?? double.NaN;
+            Z = _zAxis?.GetPosition(Units) ?? double.NaN;
+
         }
 
         public bool ResetCompleted()
         {
-            throw new NotImplementedException();
+            return true;
         }
 
-        public bool ResetToZero()
+        public void ResetToZero()
         {
-            throw new NotImplementedException();
+            if (!_zAxis.IsHomed())
+            {
+                _zAxis.Home(true);
+            }
         }
 
         public void SetAcceleration()
         {
-            throw new NotImplementedException();
+            return;
         }
 
         public bool SetContinuousMove()
         {
-            throw new NotImplementedException();
+            return false;
         }
 
         public void SetDeceleration()
         {
-            throw new NotImplementedException();
-        }
-
-        public bool SetOffset()
-        {
-            throw new NotImplementedException();
-        }
-
-        public void SetPosition()
-        {
-            throw new NotImplementedException();
+            return;
         }
 
         public void SetPosition(double x, double y, double z)
         {
-            throw new NotImplementedException();
+            return;
         }
 
-        public void SetSpeed()
+        public void SetSpeed(double velocity)
         {
-            throw new NotImplementedException();
+            if (_zAxis != null)
+            {
+                _zAxis.MoveVelocity(velocity, vUnits);
+            }
         }
 
-        public void Stop()
+        public bool Stop()
         {
-            throw new NotImplementedException();
+            if (_zAxis != null)
+            {
+                _zAxis.Stop();
+            }
+            return true;
+        }
+
+        public bool MoveRelative(double x, double y, double z)
+        {
+            try
+            {
+                _xAxis?.MoveRelativeAsync(x, Units, true);
+                _yAxis?.MoveRelativeAsync(y, Units, true);
+                _zAxis?.MoveRelativeAsync(z, Units, true);
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+                return false;
+            }
+        }
+
+        public bool MoveAbsolute(double x, double y, double z)
+        {
+            try
+            {
+                _xAxis?.MoveAbsoluteAsync(x, Units, true);
+                _yAxis?.MoveAbsoluteAsync(y, Units, true);
+                _zAxis?.MoveAbsoluteAsync(z, Units, true);
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+                return false;
+            }
+
         }
     }
 }

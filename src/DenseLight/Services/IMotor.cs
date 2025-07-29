@@ -1,13 +1,10 @@
-﻿namespace DenseLight.Services
+﻿using System.Transactions;
+
+namespace DenseLight.Services
 {
     public interface IMotor
     {
         /* PC to Controller */
-        public double X { get; }
-
-        public double Y { get; }
-
-        public double Z { get; }
 
         public void InitMotor(out string connectionState);
 
@@ -19,17 +16,19 @@
 
         public void SetDeceleration();
 
-        public void SetSpeed();
+        public void SetSpeed(double velocity);
 
-        public void Stop();
+        public bool Stop();
 
-        public bool SetOffset(); // get error command
+        public bool MoveRelative(double x, double y, double z); // get error command
+
+        public bool MoveAbsolute(double x, double y, double z);
 
         public bool SetContinuousMove();  // get error command
 
-        public bool GetMotionState(); // x y z
+        public MotionState GetMotionState(); // x y z
 
-        public bool ResetToZero();
+        public void ResetToZero();
 
         /* Controller to PC */
 
@@ -48,5 +47,12 @@
         public bool IsReset { get; set; } = false;
         public bool HasError { get; set; } = false;
         public string ErrorMessage { get; set; } = string.Empty;
+    }
+
+    public enum MotionState
+    {
+        Busy,
+        Idle,
+        Home
     }
 }
