@@ -36,7 +36,17 @@ namespace DenseLight.Devices
                 mat = null;
                 return false;
             }
-            mat = null;
+            hikCam.device.StreamGrabber.GetImageBuffer(1000, out IFrameOut frameOut);
+
+            // 替换原有的 mat = new Mat((int)frameOut.Image.Height, (int)frameOut.Image.Width, MatType.CV_8UC3, frameOut.Image.PixelData);
+            // 使用 Mat.FromPixelData 静态方法来创建 Mat 实例
+            mat = Mat.FromPixelData(
+                (int)frameOut.Image.Height,
+                (int)frameOut.Image.Width,
+                MatType.CV_8UC3,
+                frameOut.Image.PixelData
+            );
+
             return true;
         }
 
@@ -129,7 +139,13 @@ namespace DenseLight.Devices
         public float _frameRate = 30;
 
 
-
+        public HikCamImplement()
+        {
+            // 初始化相机参数
+            _exposureTime = 1000; // 默认曝光时间为1000毫秒
+            _gain = 10; // 默认增益为10
+            _frameRate = 30; // 默认帧率为30 FPS
+        }
         public bool InitializeCam()
         {
             // Open 枚举相机
@@ -246,6 +262,9 @@ namespace DenseLight.Devices
             {
                 Console.WriteLine("Acquisition mode set to continuous.");
             }
+
+
+            device.StreamGrabber.SetImageNodeNum(9);
 
             // 开启抓图
             ret = device.StreamGrabber.StartGrabbing(StreamGrabStrategy.OneByOne);

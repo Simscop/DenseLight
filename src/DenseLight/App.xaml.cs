@@ -1,5 +1,6 @@
 ﻿using DenseLight.BusinessLogic;
 using DenseLight.Devices;
+using DenseLight.Logger;
 using DenseLight.Services;
 using DenseLight.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
@@ -24,7 +25,11 @@ namespace DenseLight
         private static IServiceProvider ConfigureServices()
         {
             var services = new ServiceCollection();
+
+            services.AddSingleton<ILoggerService, FileLoggerService>();
+
             // Register core services
+
             services.AddSingleton<IMotor, ZaberMotorService>();
             services.AddSingleton<ICameraService, HikCameraService>();
 
@@ -32,6 +37,7 @@ namespace DenseLight
             services.AddSingleton<AutoFocusService>();
             services.AddSingleton<MotionControlService>();
 
+            services.AddSingleton<IImageProcessingService, ImageProcessingService>();
             // Register view models
             services.AddSingleton<ShellViewModel>();
 

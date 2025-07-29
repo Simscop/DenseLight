@@ -86,14 +86,14 @@ namespace DenseLight.Devices
 
         }
 
-        public void ReadPosition()
+        public (double X, double Y, double Z) ReadPosition()
         {
             // TODO 支持异步调用，按顺序请求坐标，在轴停止后调用 axisGroup.GetPosition(params unit)
 
             X = _xAxis?.GetPosition(Units) ?? double.NaN;
             Y = _yAxis?.GetPosition(Units) ?? double.NaN;
             Z = _zAxis?.GetPosition(Units) ?? double.NaN;
-
+            return (X, Y, Z);
         }
 
         public bool ResetCompleted()

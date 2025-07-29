@@ -8,7 +8,7 @@ namespace DenseLight.Services
 
         public void InitMotor(out string connectionState);
 
-        public void ReadPosition(); // x y z
+        public (double X, double Y, double Z) ReadPosition(); // x y z
 
         public void SetPosition(double x, double y, double z); // x y z
 
