@@ -1,24 +1,31 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DenseLight.BusinessLogic;
+using DenseLight.Devices;
+using DenseLight.Logger;
 using DenseLight.Services;
+using Microsoft.Extensions.DependencyInjection;
+using System.Collections.ObjectModel;
 using System.Drawing;
+using System.IO.Ports;
 using System.Windows;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using Zaber.Motion.Ascii;
 
 namespace DenseLight.ViewModels;
 
 public partial class ShellViewModel : ObservableObject, IDisposable
 {
-    private readonly IMotor _motor;
-    private readonly ICameraService _cameraService;
-    private readonly AutoFocusService _autoFocusService;
-    private readonly ILoggerService _logger;
-    private readonly IImageProcessingService _imageProcessingService;
+    private  IMotor _motor;
+    private  ICameraService _cameraService;
+    private  AutoFocusService _autoFocusService;
+    private ILoggerService _logger;
+    private  IImageProcessingService _imageProcessingService;
+    private ZaberMotorService _zaberMotorService;
 
-    private readonly VideoProcessingService _videoProcessing;
-    private readonly Dispatcher _dispatcher;
+    private VideoProcessingService _videoProcessing;
+    private  Dispatcher _dispatcher;
     private WriteableBitmap _currentFrame;
 
     [ObservableProperty] private double _currentX;
@@ -27,6 +34,11 @@ public partial class ShellViewModel : ObservableObject, IDisposable
 
     [ObservableProperty] private string _connectionStatus = "Disconnected";
     [ObservableProperty] private string _errorMessage = string.Empty;
+
+    [ObservableProperty]
+    private ObservableCollection<string> _coms;
+
+    [ObservableProperty] private string _com = "";
 
     [ObservableProperty]
     private double _focusScore;
@@ -56,15 +68,13 @@ public partial class ShellViewModel : ObservableObject, IDisposable
     private readonly IImageProcessingService _imageProcessing;
     private CancellationTokenSource _autoFocusCts;
 
-    public ShellViewModel(IMotor motor, AutoFocusService autoFocusService, ILoggerService logger,
-            IImageProcessingService imageProcessing, VideoProcessingService videoProcessing)
+    public ShellViewModel()
     {
-        _motor = motor;
-        _autoFocusService = autoFocusService;
-        _logger = logger;
-        _imageProcessingService = imageProcessing;
-
-        _videoProcessing = videoProcessing;
+        _logger = new FileLoggerService();
+        _motor = new ZaberMotorService();
+        _cameraService = new HikCameraService(_logger);
+        _videoProcessing = new VideoProcessingService(_cameraService, _logger, _imageProcessing);
+       
         _dispatcher = Dispatcher.CurrentDispatcher;
 
         // 注册事件
@@ -73,8 +83,12 @@ public partial class ShellViewModel : ObservableObject, IDisposable
 
         InitializeMotor();
         // 启动定期更新对焦分数
-        StartFocusScoreUpdate();
+        //StartFocusScoreUpdate();
+
+        Coms = new ObservableCollection<string>(SerialPort.GetPortNames());
     }
+
+    #region 相机
 
     [RelayCommand]
     private void StartVideo()
@@ -194,11 +208,63 @@ public partial class ShellViewModel : ObservableObject, IDisposable
 
 
     [RelayCommand]
+    private void CancelAutoFocus()
+    {
+        _autoFocusCts?.Cancel();
+    }
+
+
+    #endregion
+
+
+    #region zaber 电动台
+
+    //public ZaberMotorService zaberMotor;
+
+    //public SerialPortModel _sp;
+
+    [RelayCommand]
+    void Connect()
+    {
+        _motor.InitMotor(out string ConnectionStatus);
+
+        Application.Current.Dispatcher.Invoke(() =>
+        {
+            try
+            {
+                (double x, double y, double z) = _motor.ReadPosition();
+                CurrentZ = z;
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(e.Message);
+            }
+
+        });
+    }
+
+
+    [RelayCommand]
     private void MoveToPosition()
     {
         _motor.SetPosition(CurrentX, CurrentY, CurrentZ);
         UpdatePosition();
     }
+    [ObservableProperty] private double _zInterval = 1;
+
+    [RelayCommand]
+    void MoveZ(string symbol)
+    {
+        Task.Run(() =>
+        {
+            var value = ZInterval * (symbol == "1" ? 1 : -1);
+
+            _motor.MoveRelative(0, 0, value);
+
+            UpdatePosition();
+        });
+    }
+
 
     [RelayCommand]
     private async Task StartAutoFocus()
@@ -246,11 +312,6 @@ public partial class ShellViewModel : ObservableObject, IDisposable
         }
     }
 
-    [RelayCommand]
-    private void CancelAutoFocus()
-    {
-        _autoFocusCts?.Cancel();
-    }
 
     private void InitializeMotor()
     {
@@ -265,8 +326,6 @@ public partial class ShellViewModel : ObservableObject, IDisposable
             ErrorMessage = $"Error initializing motor: {ex.Message}";
         }
     }
-
-
 
     private void UpdateMotorPosition()
     {
@@ -292,6 +351,9 @@ public partial class ShellViewModel : ObservableObject, IDisposable
         CurrentZ = z;
     }
 
+    #endregion
+
+
     public void Dispose()
     {
         _motor.Stop();
@@ -304,7 +366,7 @@ public partial class ShellViewModel : ObservableObject, IDisposable
     ~ShellViewModel()
     {
         // Cleanup resources if necessary
-        _motor.Stop();
+        //_motor.Stop();
     }
 
 }

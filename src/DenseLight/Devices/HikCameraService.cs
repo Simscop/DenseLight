@@ -22,11 +22,14 @@ namespace DenseLight.Devices
 
         HikCamImplement hikCam = new();
 
+        public IDevice? device;
+
         public HikCameraService(ILoggerService logger)
         {
             _logger = logger;
             InitializeSDK();
             Init();
+            Open();
         }
 
         private void InitializeSDK()
@@ -182,8 +185,7 @@ namespace DenseLight.Devices
             for (int i = 0; i < devInfoList.Count; i++)
             {
                 deviceInfo = devInfoList[i];
-                DevInfoList.Add(deviceInfo);
-                _logger.LogInformation($"Device {i}: {deviceInfo.UserDefinedName}");
+                DevInfoList.Add(deviceInfo);                
             }
 
             return true;

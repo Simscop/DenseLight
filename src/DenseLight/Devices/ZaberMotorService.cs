@@ -1,8 +1,20 @@
 ﻿using DenseLight.Services;
+using System.IO.Ports;
 using Zaber.Motion.Ascii;
 
 namespace DenseLight.Devices
 {
+    public class SerialPortModel
+    {
+        /// <summary>
+        /// 获取或设置串口的名称。
+        /// </summary>
+        /// <remarks>
+        /// 通常是COM端口的标识符，如 "COM1", "COM2" 等。
+        /// </remarks>
+        public string Name { get; set; } = "COM9";
+    }
+
     public class ZaberMotorService : IMotor
     {
         // TODO 所有硬件使用异步调用，避免阻塞UI线程 添加位置边界检查和错误处理 使用CancellationToken支持取消操作
@@ -24,7 +36,7 @@ namespace DenseLight.Devices
 
         private Connection Connection { get; set; }
 
-        public string _port = "COM3";
+        public string _port = "COM9";
 
         private Device[]? deviceList;
 
@@ -34,6 +46,21 @@ namespace DenseLight.Devices
             Idle,
             Home
         }
+
+        public SerialPortModel spModel { get; set; }
+
+        private readonly SerialPort _sp;
+
+        //public ZaberMotorService(SerialPortModel model)
+        //{
+        //    spModel = model;
+        //    _sp = new SerialPort()
+        //    {
+        //        PortName = model.Name,
+        //    };
+        //    //_sp.Open();
+        //    //_port = _sp.PortName;
+        //}
 
         public Zaber.Motion.Units Units { get; set; } = Zaber.Motion.Units.Length_Nanometres;
 
@@ -78,9 +105,9 @@ namespace DenseLight.Devices
 
             Console.WriteLine($"Found {deviceList?.Length} devices.");
 
-            _zAxis = deviceList?.FirstOrDefault()?.GetAxis(1); // Assuming the first device has an axis 1
-            _yAxis = deviceList?.FirstOrDefault()?.GetAxis(2); // Assuming the first device has an axis 2
-            _xAxis = deviceList?.FirstOrDefault()?.GetAxis(3); // Assuming the first device has an axis 3
+            _zAxis = deviceList?[2].GetAxis(2); // Assuming the first device has an axis 1
+            _yAxis = deviceList?[5].GetAxis(1); // Assuming the first device has an axis 2
+            _xAxis = deviceList?[5].GetAxis(2); // Assuming the first device has an axis 3
 
             connectionState = "Connected to Zaber Motor Service";
 
@@ -179,5 +206,9 @@ namespace DenseLight.Devices
             }
 
         }
+
     }
+
+   
+
 }

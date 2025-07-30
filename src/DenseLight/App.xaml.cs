@@ -20,7 +20,11 @@ namespace DenseLight
         public App()
         {
             Services = ConfigureServices();
+            this.InitializeComponent();
         }
+
+        public new static App Current => (App)Application.Current;
+
 
         private static IServiceProvider ConfigureServices()
         {
@@ -50,11 +54,13 @@ namespace DenseLight
         protected override void OnStartup(StartupEventArgs e)
         {
             base.OnStartup(e);
-            var shell = new Shell
-            {
-                DataContext = Services.GetRequiredService<ShellViewModel>()
-            };
-            shell.Show();
+
+            // 用这个会开两次
+            //var shell = new Shell
+            //{
+            //    DataContext = Services.GetRequiredService<ShellViewModel>()
+            //};
+            //shell.Show();
         }
 
         protected override void OnExit(ExitEventArgs e)

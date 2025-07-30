@@ -10,19 +10,13 @@ namespace DenseLight
     /// </summary>
     public partial class Shell
     {
-
-        private readonly IMotor _motor;
-        private readonly ICameraService _cameraService;
-        private readonly AutoFocusService _autoFocusService;
-        private readonly ILoggerService _logger;
-        private readonly IImageProcessingService _imageProcessingService;
-        private readonly VideoProcessingService _videoProcessing;
-        private readonly ShellViewModel _viewModel;
+        
+        //private readonly ShellViewModel _viewModel;
 
         public Shell()
         {
             InitializeComponent();
-            DataContext = _viewModel;
+            DataContext = new ShellViewModel();
         }
 
         protected override void OnClosed(EventArgs e)
