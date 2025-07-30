@@ -11,6 +11,7 @@
 	<ItemGroup>
 		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
 		<PackageReference Include="Lift.Core" Version="1.0.0.5" />
+		<PackageReference Include="Lift.UI" Version="1.0.0.7" />
 		<PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.7" />
 		<PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.7" />
 		<PackageReference Include="OpenCvSharp4" Version="4.11.0.20250507" />

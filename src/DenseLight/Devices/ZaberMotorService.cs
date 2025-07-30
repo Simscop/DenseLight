@@ -124,10 +124,9 @@ namespace DenseLight.Devices
             return;
         }
 
-        public void SetPosition(double x, double y, double z)
-        {
-            return;
-        }
+        public bool SetPosition(double x, double y, double z) => MoveAbsolute(x, y, z);
+
+        public bool SetOffset(double x, double y, double z) => MoveRelative(x, y, z);
 
         public void SetSpeed(double velocity)
         {

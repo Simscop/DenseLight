@@ -1,17 +1,7 @@
-﻿using DenseLight.ViewModels;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using DenseLight.BusinessLogic;
+using DenseLight.Services;
+using DenseLight.ViewModels;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Shapes;
 
 namespace DenseLight
 {
@@ -20,10 +10,19 @@ namespace DenseLight
     /// </summary>
     public partial class Shell
     {
+
+        private readonly IMotor _motor;
+        private readonly ICameraService _cameraService;
+        private readonly AutoFocusService _autoFocusService;
+        private readonly ILoggerService _logger;
+        private readonly IImageProcessingService _imageProcessingService;
+        private readonly VideoProcessingService _videoProcessing;
+        private readonly ShellViewModel _viewModel;
+
         public Shell()
         {
             InitializeComponent();
-            
+            DataContext = _viewModel;
         }
 
         protected override void OnClosed(EventArgs e)

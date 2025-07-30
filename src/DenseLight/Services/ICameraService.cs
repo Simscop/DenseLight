@@ -19,20 +19,27 @@ namespace DenseLight.Services
         /// </summary>
         /// <returns></returns>
         public bool Init();
-
+        /// <summary>
+        /// 打开相机，之后配置相机参数
+        /// </summary>
         public void Open();
+
+        /// <summary>
+        /// 关闭相机
+        /// </summary>
+        public void Close();
 
         /// <summary>
         /// 开始采集
         /// </summary>
         /// <returns></returns>
-        public bool StartCapture();
+        public void StartCapture();
 
         /// <summary>
         /// 停止采集
         /// </summary>
         /// <returns></returns>
-        public bool StopCapture();
+        public void StopCapture();
 
         /// <summary>
         /// 采集一帧图像
@@ -45,7 +52,7 @@ namespace DenseLight.Services
         /// </summary>
         /// <param name="path"></param>
         /// <returns></returns>
-        public bool SaveCapture(string path);
+        public void SaveCapture(string path);
 
         /// <summary>
         /// 获取当前曝光
@@ -72,7 +79,7 @@ namespace DenseLight.Services
         /// </summary>
         /// <param name="exposure"></param>
         /// <returns></returns>
-        public bool SetExposure(double exposure);
+        public bool SetExposure(float exposure);
 
         /// <summary>
         /// 获取图像帧率
@@ -87,13 +94,23 @@ namespace DenseLight.Services
         /// <returns></returns>
         public string GetGain();
 
+
+        public string GetPixelFormat();
+
         /// <summary>
         /// 设置增益
         /// </summary>
         /// <param name="value"></param>
         /// <returns></returns>
-        public bool SetGain(int value);
+        public bool SetGain(float value);
 
+        /// <summary>
+        /// 设置采集帧率
+        /// </summary>
+        /// <param name="value"></param>
+        /// <returns></returns>
+        public bool SetAcquisitionFrameRate(float value);
 
+        public event EventHandler<Bitmap> FrameCaptured;
     }
 }

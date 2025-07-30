@@ -26,18 +26,21 @@ namespace DenseLight
         {
             var services = new ServiceCollection();
 
+            // Register configuration settings
             services.AddSingleton<ILoggerService, FileLoggerService>();
 
             // Register core services
-
             services.AddSingleton<IMotor, ZaberMotorService>();
             services.AddSingleton<ICameraService, HikCameraService>();
 
             // Register business logic services
             services.AddSingleton<AutoFocusService>();
             services.AddSingleton<MotionControlService>();
+            services.AddSingleton<VideoProcessingService>();
 
+            // Register video processing service
             services.AddSingleton<IImageProcessingService, ImageProcessingService>();
+
             // Register view models
             services.AddSingleton<ShellViewModel>();
 
@@ -52,6 +55,26 @@ namespace DenseLight
                 DataContext = Services.GetRequiredService<ShellViewModel>()
             };
             shell.Show();
+        }
+
+        protected override void OnExit(ExitEventArgs e)
+        {
+            base.OnExit(e);
+
+            try
+            {
+                // Dispose of services
+                if (Services is ServiceProvider serviceProvider)
+                {
+                    serviceProvider.Dispose();
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log any exceptions during shutdown
+                var logger = Services.GetService<ILoggerService>();
+                logger?.LogError($"Error during application exit: {ex.Message}");
+            }
         }
 
     }

@@ -10,7 +10,9 @@ namespace DenseLight.Services
 
         public (double X, double Y, double Z) ReadPosition(); // x y z
 
-        public void SetPosition(double x, double y, double z); // x y z
+        public bool SetPosition(double x, double y, double z); // x y z
+
+        public bool SetOffset(double x, double y, double z);
 
         public void SetAcceleration();
 
