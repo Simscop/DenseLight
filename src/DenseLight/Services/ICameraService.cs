@@ -22,7 +22,7 @@ namespace DenseLight.Services
         /// <summary>
         /// 打开相机，之后配置相机参数
         /// </summary>
-        public void Open();
+        public bool Open();
 
         /// <summary>
         /// 关闭相机
@@ -33,13 +33,13 @@ namespace DenseLight.Services
         /// 开始采集
         /// </summary>
         /// <returns></returns>
-        public void StartCapture();
+        public bool StartCapture();
 
         /// <summary>
         /// 停止采集
         /// </summary>
         /// <returns></returns>
-        public void StopCapture();
+        public bool StopCapture();
 
         /// <summary>
         /// 采集一帧图像
@@ -58,7 +58,7 @@ namespace DenseLight.Services
         /// 获取当前曝光
         /// </summary>
         /// <returns></returns>
-        public string GetExposure();
+        public double GetExposure();
 
 
         /// <summary>
@@ -85,14 +85,14 @@ namespace DenseLight.Services
         /// 获取图像帧率
         /// </summary>
         /// <returns></returns>
-        public string GetFrameRate();
+        public double GetFrameRate();
 
         /// <summary>
         /// 获取当前增益
         /// </summary>
         /// <param name="value"></param>
         /// <returns></returns>
-        public string GetGain();
+        public double GetGain();
 
 
         public string GetPixelFormat();

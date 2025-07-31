@@ -8,8 +8,8 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:viewModel="clr-namespace:DenseLight.ViewModels"
     Title="Shell"
-    Width="800"
-    Height="600"
+    Width="1200"
+    Height="800"
     d:DataContext="{d:DesignInstance Type=viewModel:ShellViewModel}"
     mc:Ignorable="d">
 
@@ -22,9 +22,7 @@
             </Grid.ColumnDefinitions>
 
             <Grid>
-
                 <liftui:ImageViewer BorderThickness="1" />
-
             </Grid>
 
             <Grid Grid.Column="1">
@@ -45,37 +43,13 @@
                         <local:Steer x:Name="SteerControl" />
 
                     </StackPanel>
-
                 </Grid>
-
-
-
 
                 <Grid Grid.Row="1">
-                    <GroupBox
-                        BorderBrush="Red"
-                        Header="Camera"
-                        Style="{DynamicResource GroupBoxTab}">
-
-                        <UniformGrid Columns="2">
-                            <Button Content="打开相机" />
-                            <Button Grid.Column="1" Content="关闭相机" />
-                        </UniformGrid>
-                    </GroupBox>
-
+                    <local:HikCamera x:Name="HikCameraControl" />
                 </Grid>
-
-
-
             </Grid>
         </Grid>
-
-
-
-
-
-
-
     </Border>
 
 </Window>

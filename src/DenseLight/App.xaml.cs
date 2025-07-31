@@ -49,6 +49,7 @@ namespace DenseLight
             // Register view models
             services.AddSingleton<ShellViewModel>();
             services.AddSingleton<SteerViewModel>();
+            services.AddSingleton<CameraViewModel>();
 
             return services.BuildServiceProvider();
         }

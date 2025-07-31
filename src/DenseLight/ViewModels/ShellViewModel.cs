@@ -18,6 +18,7 @@ namespace DenseLight.ViewModels;
 public partial class ShellViewModel : ObservableObject, IDisposable
 {
     private SteerViewModel _motor;
+    private CameraViewModel _hikCamera;
     private ICameraService _cameraService;
     private AutoFocusService _autoFocusService;
     private ILoggerService _logger;
@@ -61,26 +62,44 @@ public partial class ShellViewModel : ObservableObject, IDisposable
     }
 
 
+    [ObservableProperty]
+    private BitmapSource? _cameraImage;
+
+    // 图像更新方法（通过Dispatcher安全更新UI）
+    public void UpdateImage(BitmapSource image)
+    {
+        // 确保在UI线程更新
+        Application.Current.Dispatcher.Invoke(() =>
+        {
+            CameraImage = image;
+        });
+    }
+
     private readonly IImageProcessingService _imageProcessing;
     private CancellationTokenSource _autoFocusCts;
+
+
 
     public ShellViewModel()
     {
         _logger = new FileLoggerService();
         _motor = App.Current.Services.GetRequiredService<SteerViewModel>();
-        _cameraService = new HikCameraService(_logger);
+        _hikCamera = App.Current.Services.GetRequiredService<CameraViewModel>();
+        //_cameraService = new HikCameraService(_logger);
         _videoProcessing = new VideoProcessingService(_cameraService, _logger, _imageProcessing);
 
         _dispatcher = Dispatcher.CurrentDispatcher;
 
         // 注册事件
-        _videoProcessing.FrameProcessed += OnFrameProcessed;
-        _videoProcessing.FocusScoreUpdated += OnFocusScoreUpdated;
+        //_videoProcessing.FrameProcessed += OnFrameProcessed;
+        //_videoProcessing.FocusScoreUpdated += OnFocusScoreUpdated;
         // 启动定期更新对焦分数
         //StartFocusScoreUpdate();
 
         Coms = new ObservableCollection<string>(SerialPort.GetPortNames());
+
     }
+
 
     #region 相机
 
@@ -212,8 +231,8 @@ public partial class ShellViewModel : ObservableObject, IDisposable
 
 
     public void Dispose()
-    {     
-        
+    {
+
         _videoProcessing.FrameProcessed -= OnFrameProcessed;
         _videoProcessing.FocusScoreUpdated -= OnFocusScoreUpdated;
         _videoProcessing.Dispose();
