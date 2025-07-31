@@ -112,7 +112,7 @@ namespace DenseLight.ViewModels
             _motor = motor ?? throw new ArgumentNullException(nameof(motor));
 
             // 订阅位置更新事件
-            _positionUpdateService.PropertyChanged += OnPositionChanged;
+            //_positionUpdateService.PropertyChanged += OnPositionChanged;
             //SteerInit();
 
             _timer = new DispatcherTimer(priority: DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(100) };

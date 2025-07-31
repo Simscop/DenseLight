@@ -105,9 +105,11 @@ namespace DenseLight.Devices
 
         public bool InitMotor(out string connectionState)
         {
+            connectionState = "";
+
             if (Connection == null)
             {
-                Connection = Connection.OpenSerialPort(_port);
+                Connection = Connection.OpenSerialPortAsync(_port).Result;
                 Connection.EnableAlerts();
                 deviceList = Connection.DetectDevices(true);
 
