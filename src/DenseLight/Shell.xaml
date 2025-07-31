@@ -22,7 +22,11 @@
             </Grid.ColumnDefinitions>
 
             <Grid>
-                <liftui:ImageViewer BorderThickness="1" />
+                <liftui:ImageViewer 
+                    Margin="5"
+                    BorderBrush="SeaGreen"
+                    ImageSource="{Binding CameraImage}"
+                    BorderThickness="1" />
             </Grid>
 
             <Grid Grid.Column="1">

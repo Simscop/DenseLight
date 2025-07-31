@@ -27,48 +27,133 @@
 
                 <StackPanel>
                     <UniformGrid Columns="5" Margin="1">
-                        <Button Content="打开相机" Command="" FontSize="12" FontWeight="Bold" HorizontalAlignment="Stretch"/>
-                        <Button Content="抓取单张" FontSize="12" FontWeight="Bold" HorizontalAlignment="Stretch"/>
-                        <Button Content="开始采集" FontSize="12" FontWeight="Bold" HorizontalAlignment="Stretch"/>
-                        <Button Content="停止采集" FontSize="12" FontWeight="Bold" HorizontalAlignment="Stretch"/>
-                        <Button Content="关闭相机" FontSize="12" FontWeight="Bold" HorizontalAlignment="Stretch"/>
+                        <Button Content="打开相机" 
+                                Command="{Binding OpenCameraCommand}"                                 
+                                FontSize="12" 
+                                FontWeight="Bold" 
+                                HorizontalAlignment="Stretch"/>
+                        <Button Content="抓取单张" 
+                                Command="{Binding CaptureCommand}"
+                                FontSize="12" 
+                                FontWeight="Bold" 
+                                HorizontalAlignment="Stretch"/>
+                        <Button Content="开始采集" 
+                                Command="{Binding StartCaptureCommand}"
+                                FontSize="12" 
+                                FontWeight="Bold" 
+                                HorizontalAlignment="Stretch"/>
+                        <Button Content="停止采集" 
+                                Command="{Binding StopCaptureCommand}"
+                                FontSize="12" 
+                                FontWeight="Bold" 
+                                HorizontalAlignment="Stretch"/>
+                        <Button Content="关闭相机" 
+                                Command="{Binding CloseCameraCommand}"
+                                FontSize="12" 
+                                FontWeight="Bold" 
+                                HorizontalAlignment="Stretch"/>
                     </UniformGrid>
 
                     <UniformGrid Columns="4" Margin="1">
                         <StackPanel>
-                            <TextBlock Text="当前曝光(ms)" FontSize="12" FontWeight="Bold" HorizontalAlignment="Left"/>
-                            <liftui:NumericUpDown FontSize="12" FontWeight="Bold" VerticalAlignment="Center" ValueFormat="N2"/>
+                            <TextBlock 
+                                Text="当前曝光(ms)"                                 
+                                FontSize="12" 
+                                FontWeight="Bold" 
+                                HorizontalAlignment="Left"/>
+                            <liftui:NumericUpDown 
+                                FontSize="12" 
+                                FontWeight="Bold" 
+                                Value="{Binding ExposureTime, StringFormat={}{0:F2}, Delay=200}"
+                                IsEnabled="{Binding IsStartCapture}"
+                                VerticalAlignment="Center" 
+                                ValueFormat="N2"/>
                         </StackPanel>
                         <StackPanel Grid.Column="1" Margin="1">
-                            <TextBlock Text="当前帧率(fps)" FontSize="12" FontWeight="Bold" HorizontalAlignment="Left"/>
-                            <liftui:NumericUpDown FontSize="12" FontWeight="Bold" VerticalAlignment="Center" ValueFormat="N2"/>
+                            <TextBlock 
+                                Text="当前帧率(fps)" 
+                                FontSize="12" 
+                                FontWeight="Bold" 
+                                HorizontalAlignment="Left"/>
+                            <liftui:NumericUpDown 
+                                FontSize="12" 
+                                FontWeight="Bold" 
+                                Value="{Binding FrameRate}"
+                                VerticalAlignment="Center" 
+                                ValueFormat="N2"/>
                         </StackPanel>
                         <StackPanel Grid.Column="2" Margin="1">
-                            <TextBlock Text="当前增益(dB)" FontSize="12" FontWeight="Bold" HorizontalAlignment="Left"/>
-                            <liftui:NumericUpDown FontSize="12" FontWeight="Bold" VerticalAlignment="Center" ValueFormat="N2"/>
+                            <TextBlock 
+                                Text="当前增益(dB)" 
+                                FontSize="12" 
+                                FontWeight="Bold" 
+                                HorizontalAlignment="Left"/>
+                            <liftui:NumericUpDown 
+                                FontSize="12" 
+                                FontWeight="Bold" 
+                                Value="{Binding Gain}"
+                                VerticalAlignment="Center" 
+                                ValueFormat="N2"/>
                         </StackPanel>
                         <StackPanel Grid.Column="3" Margin="1">
-                            <TextBlock Text="像素格式" FontSize="12" FontWeight="Bold" HorizontalAlignment="Left"/>
-                            <TextBox FontSize="12" FontWeight="Bold" VerticalAlignment="Center" IsReadOnly="True"/>
+                            <TextBlock 
+                                Text="像素格式" 
+                                FontSize="12" 
+                                FontWeight="Bold" 
+                                HorizontalAlignment="Left"/>
+                            <TextBox 
+                                FontSize="12" 
+                                FontWeight="Bold" 
+                                Text="{Binding PixelFormat}"
+                                VerticalAlignment="Center" 
+                                IsReadOnly="True"/>
                         </StackPanel>
                     </UniformGrid>
 
                     <UniformGrid Columns="4" Margin="1">
-                        <Button Content="设置曝光" FontSize="12" FontWeight="Bold" HorizontalAlignment="Stretch"/>
-                        <Button Content="设置帧率" FontSize="12" FontWeight="Bold" HorizontalAlignment="Stretch"/>
-                        <Button Content="设置增益" FontSize="12" FontWeight="Bold" HorizontalAlignment="Stretch"/>
-                        <Button Content="设置格式" FontSize="12" FontWeight="Bold" HorizontalAlignment="Stretch"/>
+                        <Button Content="设置曝光" 
+                                Command="{Binding SetExposureCommand}"
+                                FontSize="12" 
+                                FontWeight="Bold" 
+                                HorizontalAlignment="Stretch"/>
+                        <Button Content="设置帧率" 
+                                Command="{Binding SetFrameRateCommand}"
+                                FontSize="12" 
+                                FontWeight="Bold" 
+                                HorizontalAlignment="Stretch"/>
+                        <Button Content="设置增益" 
+                                Command="{Binding SetGainCommand}"
+                                FontSize="12" 
+                                FontWeight="Bold" 
+                                HorizontalAlignment="Stretch"/>
+                        <Button Content="设置格式" 
+                                FontSize="12" 
+                                FontWeight="Bold" 
+                                HorizontalAlignment="Stretch"/>
                     </UniformGrid>
 
                     <UniformGrid Columns="2" Margin="1">
                         <DockPanel>
-                            <TextBox FontSize="12" VerticalAlignment="Center" DockPanel.Dock="Right" Width="300"/>
-                            <TextBlock Text="存储路径" VerticalAlignment="Center" Margin="1" />
+                            <TextBox FontSize="12" 
+                                     Text="{Binding Root}"
+                                     VerticalAlignment="Center" 
+                                     DockPanel.Dock="Right" Width="300"/>
+                            <TextBlock Text="存储路径"   
+                                       FontSize="12"
+                                       FontWeight="Bold"
+                                       VerticalAlignment="Center" 
+                                       Margin="1" />
                         </DockPanel>
 
                         <StackPanel Orientation="Horizontal" Grid.Column="1">
-                            <Button Content="选择路径" Margin="1" VerticalAlignment="Center"/>
-                            <Button Content="保存图片" Margin="1" VerticalAlignment="Center"/>
+                            <Button Content="选择路径" 
+                                    Command="{Binding SelectRootCommand}"
+                                    Margin="1" 
+                                    VerticalAlignment="Center"/>
+                            <Button Content="保存图片" 
+                                    Command="{Binding SaveCaptureCommand}"
+                                    Margin="1" 
+                                    VerticalAlignment="Center"/>
                         </StackPanel>
                     </UniformGrid>
 
