@@ -124,7 +124,7 @@ namespace DenseLight.BusinessLogic
         {
             StopProcessing();
             _camera.FrameCaptured -= OnFrameCaptured;
-            _processingCts.Dispose();
+            //_processingCts.Dispose();
 
         }
     }

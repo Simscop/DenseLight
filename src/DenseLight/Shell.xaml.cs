@@ -1,6 +1,7 @@
 ﻿using DenseLight.BusinessLogic;
 using DenseLight.Services;
 using DenseLight.ViewModels;
+using Microsoft.Extensions.DependencyInjection;
 using System.Windows;
 
 namespace DenseLight
@@ -16,7 +17,7 @@ namespace DenseLight
         public Shell()
         {
             InitializeComponent();
-            DataContext = new ShellViewModel();
+            DataContext = App.Current.Services.GetRequiredService<ShellViewModel>();
         }
 
         protected override void OnClosed(EventArgs e)

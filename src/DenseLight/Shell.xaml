@@ -42,7 +42,7 @@
                             FontWeight="Bold"
                             Text="AutoFocus Measurement Demo" />
 
-                        <local:Steer x:Name="SteerControl"/>
+                        <local:Steer x:Name="SteerControl" />
 
                     </StackPanel>
 

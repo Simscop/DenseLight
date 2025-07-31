@@ -45,8 +45,25 @@ namespace DenseLight.ViewModels
         [RelayCommand]
         void Connect()
         {
-            _zaberDevice = new ZaberMotorService();
-            _zaberDevice.SetPort(SelectedCom);
+            Console.WriteLine("连接");
+
+            _motor.InitMotor(out string connectState);
+
+            ConnectionStatus = connectState;
+
+            // 代码块调度到UI线程中执行
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                try
+                {
+                    (double x, double y, double z) = _motor.ReadPosition();
+                    Z = double.IsNaN(z) ? 0 : z;
+                }
+                catch (Exception e)
+                {
+                    
+                }
+            });
 
         }
 
@@ -95,8 +112,8 @@ namespace DenseLight.ViewModels
             _motor = motor ?? throw new ArgumentNullException(nameof(motor));
 
             // 订阅位置更新事件
-            //_positionUpdateService.PropertyChanged += OnPositionChanged;
-            SteerInit();
+            _positionUpdateService.PropertyChanged += OnPositionChanged;
+            //SteerInit();
 
             _timer = new DispatcherTimer(priority: DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(100) };
 

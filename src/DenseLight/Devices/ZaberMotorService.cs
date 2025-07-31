@@ -36,7 +36,7 @@ namespace DenseLight.Devices
 
         private Connection Connection { get; set; }
 
-        public string _port = "";
+        public string _port = "COM9";
 
         private Device[]? deviceList;
 
@@ -110,25 +110,30 @@ namespace DenseLight.Devices
                 Connection = Connection.OpenSerialPort(_port);
                 Connection.EnableAlerts();
                 deviceList = Connection.DetectDevices(true);
-            }
 
-            if (deviceList == null)
+                if (deviceList == null)
+                {
+                    connectionState = "Failed to connect to Zaber Motor Service. Please check the connection.";
+                    return false;
+                }
+                else
+                {
+                    Console.WriteLine($"Found {deviceList?.Length} devices.");
+
+                    _zAxis = deviceList?[3].GetAxis(1); // check device
+                    _yAxis = deviceList?[5].GetAxis(1);
+                    _xAxis = deviceList?[5].GetAxis(2);
+
+                    connectionState = "Connected to Zaber Motor Service";
+                    return true;
+                }
+            }
+            else
             {
                 connectionState = "Failed to connect to Zaber Motor Service. Please check the connection.";
                 return false;
             }
-            else
-            {
-                Console.WriteLine($"Found {deviceList?.Length} devices.");
-
-                _zAxis = deviceList?[3].GetAxis(1); // check device
-                _yAxis = deviceList?[5].GetAxis(1);
-                _xAxis = deviceList?[5].GetAxis(2);
-
-                connectionState = "Connected to Zaber Motor Service";
-                return true;
-            }
-
+           
         }
 
         public (double X, double Y, double Z) ReadPosition()

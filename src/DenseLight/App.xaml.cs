@@ -41,12 +41,14 @@ namespace DenseLight
             services.AddSingleton<AutoFocusService>();
             services.AddSingleton<MotionControlService>();
             services.AddSingleton<VideoProcessingService>();
+            services.AddSingleton<PositionUpdateService>();
 
             // Register video processing service
             services.AddSingleton<IImageProcessingService, ImageProcessingService>();
 
             // Register view models
             services.AddSingleton<ShellViewModel>();
+            services.AddSingleton<SteerViewModel>();
 
             return services.BuildServiceProvider();
         }

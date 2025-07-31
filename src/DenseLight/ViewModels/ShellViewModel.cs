@@ -17,7 +17,7 @@ namespace DenseLight.ViewModels;
 
 public partial class ShellViewModel : ObservableObject, IDisposable
 {
-    private IMotor _motor;
+    private SteerViewModel _motor;
     private ICameraService _cameraService;
     private AutoFocusService _autoFocusService;
     private ILoggerService _logger;
@@ -67,7 +67,7 @@ public partial class ShellViewModel : ObservableObject, IDisposable
     public ShellViewModel()
     {
         _logger = new FileLoggerService();
-        _motor = new ZaberMotorService();
+        _motor = App.Current.Services.GetRequiredService<SteerViewModel>();
         _cameraService = new HikCameraService(_logger);
         _videoProcessing = new VideoProcessingService(_cameraService, _logger, _imageProcessing);
 
@@ -212,9 +212,8 @@ public partial class ShellViewModel : ObservableObject, IDisposable
 
 
     public void Dispose()
-    {
-        _motor.Stop();
-
+    {     
+        
         _videoProcessing.FrameProcessed -= OnFrameProcessed;
         _videoProcessing.FocusScoreUpdated -= OnFocusScoreUpdated;
         _videoProcessing.Dispose();
