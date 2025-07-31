@@ -4,7 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:liftui="https://github.com/pchuan98/Lift.UI"
-    xmlns:local="clr-namespace:DenseLight"
+    xmlns:local="clr-namespace:DenseLight.Views"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:viewModel="clr-namespace:DenseLight.ViewModels"
     Title="Shell"
@@ -42,85 +42,14 @@
                             FontWeight="Bold"
                             Text="AutoFocus Measurement Demo" />
 
-
-                        <GroupBox
-                            Margin="1"
-                            BorderBrush="Red"
-                            Header="Zaber Controller"
-                            Style="{DynamicResource GroupBoxTab}">
-
-                            <StackPanel Orientation="Vertical">
-                                <DockPanel>
-                                    <!--  DockPanel.Dock="Right"要先放  -->
-                                    <Button
-                                        Margin="1,0"
-                                        Command="{Binding ConnectCommand}"
-                                        Content="Connect"
-                                        DockPanel.Dock="Right" />
-                                    <ComboBox
-                                        FontWeight="Bold"
-                                        ItemsSource="{Binding Coms}"
-                                        SelectedItem="{Binding Com}" />
-                                </DockPanel>
-
-                                <UniformGrid Margin="0,1" Columns="2">
-                                    <TextBlock VerticalAlignment="Center" Text="Connection Status: " />
-                                    <TextBlock Text="{Binding ConnectionStatus}" />
-                                </UniformGrid>
-
-                                <UniformGrid Margin="0,1" Columns="2">
-                                    <TextBlock VerticalAlignment="Center" Text="Z(nm)" />
-                                    <liftui:NumericUpDown
-                                        Grid.Column="1"
-                                        VerticalAlignment="Stretch"
-                                        VerticalContentAlignment="Center"
-                                        IsReadOnly="True"
-                                        ValueFormat="F3"
-                                        Value="{Binding CurrentZ}" />
-                                </UniformGrid>
-
-                                <UniformGrid Margin="0,1" Columns="2">
-                                    <TextBlock VerticalAlignment="Center" Text="Z-OFFSET(nm)" />
-                                    <liftui:NumericUpDown
-                                        Grid.Column="1"
-                                        Increment="1"
-                                        Minimum="1"
-                                        ValueFormat="F3"
-                                        Value="{Binding ZInterval}" />
-                                </UniformGrid>
-
-                                <UniformGrid Margin="0,1" Columns="2">
-                                    <Button
-                                        Height="30"
-                                        HorizontalAlignment="Stretch"
-                                        VerticalAlignment="Stretch"
-                                        HorizontalContentAlignment="Center"
-                                        VerticalContentAlignment="Center"
-                                        Command="{Binding MoveZCommand}"
-                                        CommandParameter="-1"
-                                        Content="-"
-                                        FontSize="18"
-                                        FontWeight="Bold" />
-                                    <Button
-                                        Height="30"
-                                        HorizontalAlignment="Stretch"
-                                        VerticalAlignment="Stretch"
-                                        HorizontalContentAlignment="Center"
-                                        VerticalContentAlignment="Center"
-                                        Command="{Binding MoveZCommand}"
-                                        CommandParameter="1"
-                                        Content="+"
-                                        FontSize="18"
-                                        FontWeight="Bold" />
-                                </UniformGrid>
-
-
-                            </StackPanel>
-
-                        </GroupBox>
+                        <local:Steer x:Name="SteerControl"/>
 
                     </StackPanel>
+
                 </Grid>
+
+
+
 
                 <Grid Grid.Row="1">
                     <GroupBox
@@ -136,11 +65,14 @@
 
                 </Grid>
 
+
+
             </Grid>
-
-
-
         </Grid>
+
+
+
+
 
 
 

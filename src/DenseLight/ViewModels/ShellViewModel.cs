@@ -17,22 +17,18 @@ namespace DenseLight.ViewModels;
 
 public partial class ShellViewModel : ObservableObject, IDisposable
 {
-    private  IMotor _motor;
-    private  ICameraService _cameraService;
-    private  AutoFocusService _autoFocusService;
+    private IMotor _motor;
+    private ICameraService _cameraService;
+    private AutoFocusService _autoFocusService;
     private ILoggerService _logger;
-    private  IImageProcessingService _imageProcessingService;
+    private IImageProcessingService _imageProcessingService;
     private ZaberMotorService _zaberMotorService;
 
     private VideoProcessingService _videoProcessing;
-    private  Dispatcher _dispatcher;
+    private Dispatcher _dispatcher;
     private WriteableBitmap _currentFrame;
 
-    [ObservableProperty] private double _currentX;
-    [ObservableProperty] private double _currentY;
-    [ObservableProperty] private double _currentZ;
 
-    [ObservableProperty] private string _connectionStatus = "Disconnected";
     [ObservableProperty] private string _errorMessage = string.Empty;
 
     [ObservableProperty]
@@ -74,14 +70,12 @@ public partial class ShellViewModel : ObservableObject, IDisposable
         _motor = new ZaberMotorService();
         _cameraService = new HikCameraService(_logger);
         _videoProcessing = new VideoProcessingService(_cameraService, _logger, _imageProcessing);
-       
+
         _dispatcher = Dispatcher.CurrentDispatcher;
 
         // 注册事件
         _videoProcessing.FrameProcessed += OnFrameProcessed;
         _videoProcessing.FocusScoreUpdated += OnFocusScoreUpdated;
-
-        InitializeMotor();
         // 启动定期更新对焦分数
         //StartFocusScoreUpdate();
 
@@ -213,143 +207,6 @@ public partial class ShellViewModel : ObservableObject, IDisposable
         _autoFocusCts?.Cancel();
     }
 
-
-    #endregion
-
-
-    #region zaber 电动台
-
-    //public ZaberMotorService zaberMotor;
-
-    //public SerialPortModel _sp;
-
-    [RelayCommand]
-    void Connect()
-    {
-        _motor.InitMotor(out string ConnectionStatus);
-
-        Application.Current.Dispatcher.Invoke(() =>
-        {
-            try
-            {
-                (double x, double y, double z) = _motor.ReadPosition();
-                CurrentZ = z;
-            }
-            catch (Exception e)
-            {
-                _logger.LogError(e.Message);
-            }
-
-        });
-    }
-
-
-    [RelayCommand]
-    private void MoveToPosition()
-    {
-        _motor.SetPosition(CurrentX, CurrentY, CurrentZ);
-        UpdatePosition();
-    }
-    [ObservableProperty] private double _zInterval = 1;
-
-    [RelayCommand]
-    void MoveZ(string symbol)
-    {
-        Task.Run(() =>
-        {
-            var value = ZInterval * (symbol == "1" ? 1 : -1);
-
-            _motor.MoveRelative(0, 0, value);
-
-            UpdatePosition();
-        });
-    }
-
-
-    [RelayCommand]
-    private async Task StartAutoFocus()
-    {
-        if (IsAutoFocusRunning) return;
-
-        try
-        {
-            IsAutoFocusRunning = true;
-            _autoFocusCts = new CancellationTokenSource();
-
-            // 简单扫描对焦
-            // double bestZ = await _autoFocusService.PerformAutoFocusAsync(
-            //     startZ: _motor.Z - 5,
-            //     endZ: _motor.Z + 5,
-            //     stepSize: 0.2,
-            //     cropSize: CropSize,
-            //     cancellationToken: _autoFocusCts.Token);
-
-            // 智能对焦
-            double bestZ = await _autoFocusService.SmartAutoFocusAsync(
-                initialStep: 1.0,
-                minStep: 0.05,
-                cropSize: CropSize,
-                cancellationToken: _autoFocusCts.Token);
-
-            // 更新位置显示
-            UpdatePosition();
-        }
-        catch (OperationCanceledException)
-        {
-            _logger.LogInformation("Auto focus was cancelled");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogException(ex, "Auto focus failed");
-            MessageBox.Show($"Auto focus failed: {ex.Message}", "Error",
-                MessageBoxButton.OK, MessageBoxImage.Error);
-        }
-        finally
-        {
-            IsAutoFocusRunning = false;
-            _autoFocusCts?.Dispose();
-            _autoFocusCts = null;
-        }
-    }
-
-
-    private void InitializeMotor()
-    {
-        try
-        {
-            _motor.InitMotor(out string connectionState);
-            ConnectionStatus = connectionState;
-            UpdateMotorPosition();
-        }
-        catch (Exception ex)
-        {
-            ErrorMessage = $"Error initializing motor: {ex.Message}";
-        }
-    }
-
-    private void UpdateMotorPosition()
-    {
-        try
-        {
-            (double x, double y, double z) = _motor.ReadPosition();
-            CurrentX = x;
-            CurrentY = y;
-            CurrentZ = z;
-
-        }
-        catch (Exception ex)
-        {
-            ErrorMessage = $"Error reading motor position: {ex.Message}";
-        }
-    }
-
-    private void UpdatePosition()
-    {
-        (double x, double y, double z) = _motor.ReadPosition();
-        CurrentX = x;
-        CurrentY = y;
-        CurrentZ = z;
-    }
 
     #endregion
 

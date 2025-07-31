@@ -6,7 +6,7 @@ namespace DenseLight.Services
     {
         /* PC to Controller */
 
-        public void InitMotor(out string connectionState);
+        public bool InitMotor(out string connectionState);
 
         public (double X, double Y, double Z) ReadPosition(); // x y z
 

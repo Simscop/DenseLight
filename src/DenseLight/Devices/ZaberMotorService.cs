@@ -36,7 +36,7 @@ namespace DenseLight.Devices
 
         private Connection Connection { get; set; }
 
-        public string _port = "COM9";
+        public string _port = "";
 
         private Device[]? deviceList;
 
@@ -66,6 +66,15 @@ namespace DenseLight.Devices
 
         public Zaber.Motion.Units vUnits { get; set; } = Zaber.Motion.Units.Velocity_NanometresPerSecond;
 
+        /// <summary>
+        /// 设置串口名称的公共方法。
+        /// </summary>
+        /// <param name="portName"></param>
+        public void SetPort(string portName)
+        {
+            _port = portName;
+        }
+
         public bool GetErrorCommand()
         {
             return false;
@@ -73,19 +82,19 @@ namespace DenseLight.Devices
 
         Services.MotionState IMotor.GetMotionState()
         {
-            bool isBusy = _axisGroup.IsBusy();
+            bool isBusy = _zAxis.IsBusy();
             if (isBusy) return Services.MotionState.Busy;
-            bool isHomed = _axisGroup.IsHomed();
+            bool isHomed = _zAxis.IsHomed();
             return isHomed ? Services.MotionState.Home : Services.MotionState.Idle;
 
         }
 
         public bool HasMovedIntoPosition()
         {
-            bool isBusy = _axisGroup.IsBusy();
+            bool isBusy = _zAxis.IsBusy();
             if (isBusy)
             {
-                _axisGroup.WaitUntilIdle();
+                _zAxis.WaitUntilIdle();
                 return false;
             }
             else
@@ -94,7 +103,7 @@ namespace DenseLight.Devices
             }
         }
 
-        public void InitMotor(out string connectionState)
+        public bool InitMotor(out string connectionState)
         {
             if (Connection == null)
             {
@@ -103,13 +112,22 @@ namespace DenseLight.Devices
                 deviceList = Connection.DetectDevices(true);
             }
 
-            Console.WriteLine($"Found {deviceList?.Length} devices.");
+            if (deviceList == null)
+            {
+                connectionState = "Failed to connect to Zaber Motor Service. Please check the connection.";
+                return false;
+            }
+            else
+            {
+                Console.WriteLine($"Found {deviceList?.Length} devices.");
 
-            _zAxis = deviceList?[2].GetAxis(2); // Assuming the first device has an axis 1
-            _yAxis = deviceList?[5].GetAxis(1); // Assuming the first device has an axis 2
-            _xAxis = deviceList?[5].GetAxis(2); // Assuming the first device has an axis 3
+                _zAxis = deviceList?[3].GetAxis(1); // check device
+                _yAxis = deviceList?[5].GetAxis(1);
+                _xAxis = deviceList?[5].GetAxis(2);
 
-            connectionState = "Connected to Zaber Motor Service";
+                connectionState = "Connected to Zaber Motor Service";
+                return true;
+            }
 
         }
 
@@ -165,7 +183,7 @@ namespace DenseLight.Devices
 
         public bool Stop()
         {
-            if (_zAxis != null)
+            if (_zAxis.IsBusy())
             {
                 _zAxis.Stop();
             }
@@ -209,6 +227,6 @@ namespace DenseLight.Devices
 
     }
 
-   
+
 
 }
