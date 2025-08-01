@@ -94,7 +94,7 @@ namespace DenseLight.Devices
 
         public bool SetGain(float value) => hikCam.SetGain(value);
 
-        public bool StartCapture() => hikCam.StartCapture();
+        public bool StartCapture(out Mat mat) => hikCam.StartCapture(out mat);
 
         public bool StopCapture() => hikCam.StopCapture();
 
@@ -247,6 +247,7 @@ namespace DenseLight.Devices
         public bool Capture(out Mat mat)
         {
             if (_parent.device == null) { mat = null; return false; }
+            mat = null;
             int ret = _parent.device.Parameters.SetEnumValue("TriggerMode", 0); // 设置触发模式为“On”
             if (ret != MvError.MV_OK)
             {
@@ -275,7 +276,9 @@ namespace DenseLight.Devices
             //_asyncProcessThread.Join(); // 等待异步处理线程结束
             var streamGrabber = _parent.device.StreamGrabber;
 
-            Thread GrabThread = new Thread(() => 
+            Mat localMat = null;
+
+            Thread GrabThread = new Thread(() =>
             {
                 while (!_grabThreadExit)
                 {
@@ -288,10 +291,13 @@ namespace DenseLight.Devices
                         Console.WriteLine("Get Image failed:{0:x8}", ret);
                         continue;
                     }
-
-                    Console.WriteLine("Get one frame: Width[{0}] , Height[{1}] , ImageSize[{2}], FrameNum[{3}]", frame.Image.Width, frame.Image.Height, frame.Image.ImageSize, frame.FrameNum);
-                    //Do some thing
-
+                    else
+                    {
+                        Console.WriteLine("Get one frame: Width[{0}] , Height[{1}] , ImageSize[{2}], FrameNum[{3}]",
+                            frame.Image.Width, frame.Image.Height, frame.Image.ImageSize, frame.FrameNum);
+                        //Do some thing
+                        localMat = ConvertToMat(frame.Image); // 将图像转换为Mat格式
+                    }
 
                     //ch: 释放图像缓存  | en: Release the image buffer
                     streamGrabber.FreeImageBuffer(frame);
@@ -321,7 +327,7 @@ namespace DenseLight.Devices
             //    MatType.CV_8UC3,
             //    frameOut.Image.PixelData
             //);
-            mat = null;
+            mat = localMat;
 
             return true;
         }
@@ -580,11 +586,12 @@ namespace DenseLight.Devices
             }
         }
 
-        /// <summary>
-        /// 连续采集
-        /// </summary>
-        public bool StartCapture()
+        // 修复 CS1628 错误：不能在 lambda/匿名方法中使用 out 参数“mat”
+        // 解决方法：将 out 参数 mat 替换为局部变量，然后在主方法体赋值
+
+        public bool StartCapture(out Mat mat)
         {
+            mat = null;
             if (_parent.device == null)
             {
                 //_logger.LogError("Device is not initialized.");
@@ -593,7 +600,7 @@ namespace DenseLight.Devices
             int ret = _parent.device.Parameters.SetEnumValue("TriggerMode", 0); // 设置触发模式为“On”
             if (ret != MvError.MV_OK)
             {
-                ShowErrorMsg("Set TriggerMode failed", ret);               
+                ShowErrorMsg("Set TriggerMode failed", ret);
                 return false;
             }
 
@@ -604,7 +611,7 @@ namespace DenseLight.Devices
             if (ret != MvError.MV_OK)
             {
                 isGrabbing = false;
-                receivedThread.Join(); // 确保线程安全退出
+                receivedThread?.Join(); // 确保线程安全退出
                 ShowErrorMsg("Start grabbing failed", ret);
                 return false;
             }
@@ -612,7 +619,9 @@ namespace DenseLight.Devices
 
             var streamGrabber = _parent.device.StreamGrabber;
 
-            receivedThread = new Thread(()=>
+            Mat localMat = null; // 局部变量保存采集到的 Mat
+
+            receivedThread = new Thread(() =>
             {
                 while (!_grabThreadExit)
                 {
@@ -625,16 +634,19 @@ namespace DenseLight.Devices
                         Console.WriteLine("Get Image failed:{0:x8}", ret);
                         continue;
                     }
-
-                    Console.WriteLine("Get one frame: Width[{0}] , Height[{1}] , ImageSize[{2}], FrameNum[{3}]", frame.Image.Width, frame.Image.Height, frame.Image.ImageSize, frame.FrameNum);
-                    //Do some thing
-
+                    else
+                    {
+                        Console.WriteLine("Get one frame: Width[{0}] , Height[{1}] , ImageSize[{2}], FrameNum[{3}]",
+                            frame.Image.Width, frame.Image.Height, frame.Image.ImageSize, frame.FrameNum);
+                        //Do some thing
+                        localMat = ConvertToMat(frame.Image); // 将图像转换为Mat格式
+                    }
 
                     //ch: 释放图像缓存  | en: Release the image buffer
                     streamGrabber.FreeImageBuffer(frame);
                 }
 
-            }) // ReceiveThreadProcess
+            })
             {
                 Name = "HikCameraReceiveThread",
                 Priority = ThreadPriority.AboveNormal,
@@ -642,6 +654,7 @@ namespace DenseLight.Devices
             };
             receivedThread.Start();
 
+            mat = localMat; // 线程结束后赋值给 out 参数
 
             //_logger.LogInformation("Started grabbing successfully.");
             return true;
@@ -879,7 +892,6 @@ namespace DenseLight.Devices
 
         }
 
-
         private void ShowErrorMsg(string message, int errorCode)
         {
             string errorMsg;
@@ -914,6 +926,44 @@ namespace DenseLight.Devices
 
             MessageBox.Show(errorMsg, "PROMPT");
         }
+
+
+        public Mat ConvertToMat(IImage image)
+        {
+            // 1. 获取图像基本参数
+            uint width = image.Width;
+            uint height = image.Height;
+            MvGvspPixelType pixelType = image.PixelType;
+
+            // 2. 映射像素格式到 OpenCV 类型
+            MatType matType = MapPixelTypeToMatType(pixelType);
+
+            // 3. 使用推荐的 Mat.FromPixelData 方法创建 Mat（不复制数据）
+            Mat mat = Mat.FromPixelData((int)height, (int)width, matType, image.PixelDataPtr);
+
+            // 4. 克隆数据（如果需要长期保存图像）
+            // return mat.Clone();
+            return mat;
+        }
+
+        private MatType MapPixelTypeToMatType(MvGvspPixelType pixelType)
+        {
+            switch (pixelType)
+            {
+                case MvGvspPixelType.PixelType_Gvsp_Mono8:    // 8位灰度
+                    return MatType.CV_8UC1;
+                case MvGvspPixelType.PixelType_Gvsp_BGR8_Packed:  // 24位BGR
+                case MvGvspPixelType.PixelType_Gvsp_RGB8_Packed:  // 24位RGB
+                    return MatType.CV_8UC3;
+                case MvGvspPixelType.PixelType_Gvsp_BGRA8_Packed: // 32位BGRA
+                case MvGvspPixelType.PixelType_Gvsp_RGBA8_Packed: // 32位RGBA
+                    return MatType.CV_8UC4;
+                // 添加其他格式的映射...
+                default:
+                    throw new NotSupportedException($"Unsupported pixel format: {pixelType}");
+            }
+        }
+
 
     }
 

@@ -22,23 +22,23 @@ namespace DenseLight
             DataContext = App.Current.Services.GetRequiredService<ShellViewModel>();
 
             //_hikCameraService = App.Current.Services.GetRequiredService<HikCameraService>();
-            _hikCameraService = new HikCameraService();
-            _hikCameraService.ImageReady += OnImageReady;
+            //_hikCameraService = new HikCameraService();
+            //_hikCameraService.ImageReady += OnImageReady;
 
             //Closed += Shell_Closed;
         }
 
-        private void Shell_Closed(object? sender, EventArgs e)
-        {
-            // 窗口关闭时注销事件
-            _hikCameraService.ImageReady -= OnImageReady;
-        }
+        //private void Shell_Closed(object? sender, EventArgs e)
+        //{
+        //    // 窗口关闭时注销事件
+        //    _hikCameraService.ImageReady -= OnImageReady;
+        //}
 
-        private void OnImageReady(BitmapSource image)
-        {
-            var viewModel = (ShellViewModel)DataContext;
-            viewModel.UpdateImage(image);
-        }
+        //private void OnImageReady(BitmapSource image)
+        //{
+        //    var viewModel = (ShellViewModel)DataContext;
+        //    viewModel.UpdateImage(image);
+        //}
 
 
         protected override void OnClosed(EventArgs e)

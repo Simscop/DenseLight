@@ -25,7 +25,7 @@
                 <liftui:ImageViewer 
                     Margin="5"
                     BorderBrush="SeaGreen"
-                    ImageSource="{Binding CameraImage}"
+                    ImageSource="{Binding }"
                     BorderThickness="1" />
             </Grid>
 

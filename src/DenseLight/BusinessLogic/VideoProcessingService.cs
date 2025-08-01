@@ -1,4 +1,5 @@
 ﻿using DenseLight.Services;
+using OpenCvSharp;
 using OpenCvSharp.Extensions;
 using System;
 using System.Collections.Generic;
@@ -87,7 +88,7 @@ namespace DenseLight.BusinessLogic
 
             _processingCts = new CancellationTokenSource();
 
-            _camera.StartCapture();
+            _camera.StartCapture(out Mat mat);
 
             _logger.LogInformation($"Starting video processing at {_targetFps} FPS");
         }

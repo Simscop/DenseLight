@@ -13,6 +13,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 
 namespace DenseLight.ViewModels
@@ -61,7 +62,7 @@ namespace DenseLight.ViewModels
                 }
                 catch (Exception e)
                 {
-                    
+
                 }
             });
 
@@ -125,7 +126,7 @@ namespace DenseLight.ViewModels
             _positionUpdateService.PropertyChanged += OnPositionChanged;
             //SteerInit();
 
-            _timer = new DispatcherTimer(priority: DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(100) };
+            //_timer = new DispatcherTimer(priority: DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(100) };
 
             Coms = new ObservableCollection<string>(SerialPort.GetPortNames());
         }

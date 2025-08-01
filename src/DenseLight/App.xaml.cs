@@ -1,4 +1,5 @@
-﻿using DenseLight.BusinessLogic;
+﻿using CommunityToolkit.Mvvm.Messaging;
+using DenseLight.BusinessLogic;
 using DenseLight.Devices;
 using DenseLight.Logger;
 using DenseLight.Services;
@@ -42,6 +43,7 @@ namespace DenseLight
             services.AddSingleton<MotionControlService>();
             services.AddSingleton<VideoProcessingService>();
             services.AddSingleton<PositionUpdateService>();
+            services.AddSingleton<FrameRefreshService>();
 
             // Register video processing service
             services.AddSingleton<IImageProcessingService, ImageProcessingService>();
@@ -50,6 +52,9 @@ namespace DenseLight
             services.AddSingleton<ShellViewModel>();
             services.AddSingleton<SteerViewModel>();
             services.AddSingleton<CameraViewModel>();
+
+            // Register Messenger for MVVM communication
+            services.AddSingleton<IMessenger>(new WeakReferenceMessenger());
 
             return services.BuildServiceProvider();
         }

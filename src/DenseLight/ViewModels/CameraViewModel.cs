@@ -9,15 +9,32 @@ using System.Reflection.Metadata;
 using OpenCvSharp;
 using Microsoft.WindowsAPICodePack.Dialogs;
 using System.Windows;
+using DenseLight.BusinessLogic;
+using CommunityToolkit.Mvvm.Messaging;
 
 namespace DenseLight.ViewModels
 {
     public partial class CameraViewModel : ObservableObject
     {
         private readonly ICameraService _camera;
+        private readonly FrameRefreshService _frameRefreshService;
+        private readonly IMessenger _messenger = WeakReferenceMessenger.Default;
 
-        [ObservableProperty]
-        public BitmapFrame? _currentFrame;
+        private BitmapFrame? _currentFrame;
+
+        public BitmapFrame? CurrentFrame
+        {
+            get => _currentFrame;
+            set
+            {
+                if (SetProperty(ref _currentFrame, value))
+                {
+                    // 通知消息系统更新当前帧
+                    _messenger.Send(new Message.FrameUpdateMessage(value));
+                }
+            }
+        }
+
 
         [ObservableProperty]
         private double _exposureTime = 100; // 默认曝光时间为100ms
@@ -39,10 +56,15 @@ namespace DenseLight.ViewModels
 
         private bool _isInit;
 
-        public CameraViewModel(ICameraService camera)
+        public CameraViewModel(ICameraService camera, FrameRefreshService frameRefreshService, IMessenger messenger)
         {
+            _messenger = messenger;
+
             _camera = camera ?? throw new ArgumentNullException(nameof(camera));
+            _frameRefreshService = frameRefreshService ?? throw new ArgumentNullException(nameof(frameRefreshService));
             _isInit = ConfigureCamera();
+
+            _frameRefreshService.PropertyChanged += OnFrameRefreshService_PropertyChanged;
         }
 
         private bool ConfigureCamera()
@@ -52,7 +74,20 @@ namespace DenseLight.ViewModels
             return isCamInit;
         }
 
+        private void OnFrameRefreshService_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(FrameRefreshService.frame))
+            {
+                CurrentFrame = _frameRefreshService.frame?.ToBitmapSource() is { } bitmap ? BitmapFrame.Create(bitmap) : null;
+            }
+        }
 
+        public void Cleanup()
+        {
+            _frameRefreshService.PropertyChanged -= OnFrameRefreshService_PropertyChanged;
+            _frameRefreshService.Dispose();
+            CloseCamera();
+        }
 
         [RelayCommand]
         void OpenCamera()
@@ -201,7 +236,7 @@ namespace DenseLight.ViewModels
         [RelayCommand]
         void StartCapture()
         {
-            IsStartCapture = _camera.StartCapture();
+            IsStartCapture = _camera.StartCapture(out Mat mat);
             if (!IsStartCapture) { MessageBox.Show("camera is not open"); }
         }
 

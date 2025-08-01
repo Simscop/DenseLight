@@ -11,6 +11,7 @@ using System.IO.Ports;
 using System.Windows;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using CommunityToolkit.Mvvm.Messaging;
 using Zaber.Motion.Ascii;
 
 namespace DenseLight.ViewModels;
@@ -28,6 +29,8 @@ public partial class ShellViewModel : ObservableObject, IDisposable
     private VideoProcessingService _videoProcessing;
     private Dispatcher _dispatcher;
     private WriteableBitmap _currentFrame;
+
+    private readonly IMessenger _messenger = WeakReferenceMessenger.Default;
 
 
     [ObservableProperty] private string _errorMessage = string.Empty;
@@ -61,27 +64,33 @@ public partial class ShellViewModel : ObservableObject, IDisposable
         set => SetProperty(ref _currentFrame, value);
     }
 
+    private BitmapFrame _cameraImage;
 
-    [ObservableProperty]
-    private BitmapSource? _cameraImage;
+    public BitmapFrame CameraImage
+    {
+        get => _cameraImage;
+        set => SetProperty(ref _cameraImage, value);
+    }
+
 
     // 图像更新方法（通过Dispatcher安全更新UI）
-    public void UpdateImage(BitmapSource image)
-    {
-        // 确保在UI线程更新
-        Application.Current.Dispatcher.Invoke(() =>
-        {
-            CameraImage = image;
-        });
-    }
+    //public void UpdateImage(BitmapSource image)
+    //{
+    //    // 确保在UI线程更新
+    //    Application.Current.Dispatcher.Invoke(() =>
+    //    {
+    //        CameraImage = image;
+    //    });
+    //}
 
     private readonly IImageProcessingService _imageProcessing;
     private CancellationTokenSource _autoFocusCts;
 
 
 
-    public ShellViewModel()
+    public ShellViewModel(IMessenger messenger)
     {
+        _messenger = messenger ?? throw new ArgumentNullException(nameof(messenger));
         _logger = new FileLoggerService();
         _motor = App.Current.Services.GetRequiredService<SteerViewModel>();
         _hikCamera = App.Current.Services.GetRequiredService<CameraViewModel>();
@@ -97,6 +106,15 @@ public partial class ShellViewModel : ObservableObject, IDisposable
         //StartFocusScoreUpdate();
 
         Coms = new ObservableCollection<string>(SerialPort.GetPortNames());
+
+        // 消息接收
+        _messenger.Register<Message.FrameUpdateMessage>(this, (r, m) =>
+        {
+            if (m.Frame != null)
+            {
+                CameraImage = m.Frame;
+            }
+        });
 
     }
 
