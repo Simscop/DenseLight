@@ -175,12 +175,39 @@ namespace DenseLight.Devices
 
         private Semaphore _frameGrabSem = null;
 
-
+        static volatile bool _grabThreadExit = false;
 
         private volatile bool _processThreadExit = false;
 
 
         private volatile bool _isCaptureRunning = false;
+
+
+        static void FrameGrabThread(object obj)
+        {
+            IStreamGrabber streamGrabber = (IStreamGrabber)obj;
+
+            while (!_grabThreadExit)
+            {
+                IFrameOut frame;
+
+                //ch：获取一帧图像 | en: Get one frame
+                int ret = streamGrabber.GetImageBuffer(1000, out frame);
+                if (ret != MvError.MV_OK)
+                {
+                    Console.WriteLine("Get Image failed:{0:x8}", ret);
+                    continue;
+                }
+
+                Console.WriteLine("Get one frame: Width[{0}] , Height[{1}] , ImageSize[{2}], FrameNum[{3}]", frame.Image.Width, frame.Image.Height, frame.Image.ImageSize, frame.FrameNum);
+                //Do some thing
+
+
+                //ch: 释放图像缓存  | en: Release the image buffer
+                streamGrabber.FreeImageBuffer(frame);
+            }
+        }
+
 
         public HikCamImplement(HikCameraService parent)
         {
@@ -220,7 +247,7 @@ namespace DenseLight.Devices
         public bool Capture(out Mat mat)
         {
             if (_parent.device == null) { mat = null; return false; }
-            int ret = _parent.device.Parameters.SetEnumValueByString("TriggerMode", "Off");
+            int ret = _parent.device.Parameters.SetEnumValue("TriggerMode", 0); // 设置触发模式为“On”
             if (ret != MvError.MV_OK)
             {
                 ShowErrorMsg("Set TriggerMode failed", ret);
@@ -230,13 +257,13 @@ namespace DenseLight.Devices
 
             _parent.device.StreamGrabber.SetImageNodeNum(5); // 设置图像节点数量
 
-            _processThreadExit = false; // 确保线程可以运行
-            _asyncProcessThread = new Thread(AsyncProcessThread);
-            _asyncProcessThread.Start(); // 启动异步处理线程
+            //_processThreadExit = false; // 确保线程可以运行
+            //_asyncProcessThread = new Thread(AsyncProcessThread);
+            //_asyncProcessThread.Start(); // 启动异步处理线程
 
-            _parent.device.StreamGrabber.FrameGrabedEvent += FrameGrabedEventHandler; // 注册帧抓取事件处理程序
+            //_parent.device.StreamGrabber.FrameGrabedEvent += FrameGrabedEventHandler; // 注册帧抓取事件处理程序
 
-            ret = _parent.device.StreamGrabber.StartGrabbing(StreamGrabStrategy.OneByOne);
+            ret = _parent.device.StreamGrabber.StartGrabbing();
             if (ret != MvError.MV_OK)
             {
                 ShowErrorMsg("Start grabbing failed", ret);
@@ -244,10 +271,15 @@ namespace DenseLight.Devices
                 return false;
             }
 
-            _processThreadExit = true; // 通知异步处理线程退出
-            _asyncProcessThread.Join(); // 等待异步处理线程结束
+            //_processThreadExit = true; // 通知异步处理线程退出
+            //_asyncProcessThread.Join(); // 等待异步处理线程结束
+            Thread GrabThread = new Thread(FrameGrabThread);
+            GrabThread.Start(_parent.device.StreamGrabber);
 
-            ret = device.StreamGrabber.StopGrabbing();
+            _grabThreadExit = true; // 通知线程退出
+            GrabThread.Join(); // 等待线程结束
+
+            ret = _parent.device.StreamGrabber.StopGrabbing();
             if (ret != MvError.MV_OK)
             {
                 ShowErrorMsg("Stop grabbing failed", ret);
@@ -548,7 +580,7 @@ namespace DenseLight.Devices
             }
             isGrabbing = true;
 
-            receivedThread = new Thread(ReceiveThreadProcess)
+            receivedThread = new Thread(FrameGrabThread) // ReceiveThreadProcess
             {
                 Name = "HikCameraReceiveThread",
                 Priority = ThreadPriority.AboveNormal,
@@ -785,7 +817,7 @@ namespace DenseLight.Devices
         {
             _parent.device.Dispose();
             _parent.device = null;
-            
+
         }
 
 
