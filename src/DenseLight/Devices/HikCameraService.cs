@@ -9,6 +9,7 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 
@@ -26,6 +27,26 @@ namespace DenseLight.Devices
         public bool _isStartCapture = false;
 
         public event EventHandler<Bitmap> FrameCaptured;
+
+        // 定义事件
+        public event Action<Mat> FrameReceived;
+
+        protected virtual void OnFrameReceived(Mat frame)
+        {
+            FrameReceived?.Invoke(frame);
+        }
+
+        // 定义回调委托
+        public delegate void FrameReceivedCallback(Mat frame);
+
+        // 存储回调的引用
+        private FrameReceivedCallback _frameCallback;
+
+        // 方法：将回调传递给子类
+        public void RegisterFrameCallback(FrameReceivedCallback callback)
+        {
+            _frameCallback = callback;
+        }
 
         IFrameOut frameOut = null;
 
@@ -96,7 +117,12 @@ namespace DenseLight.Devices
 
         public bool SetGain(float value) => hikCam.SetGain(value);
 
-        public bool StartCapture(out Mat mat) => hikCam.StartCapture(out mat);
+        public bool StartCapture()
+        {
+            hikCam.FrameReceived += (frame) => OnFrameReceived(frame);
+
+            return hikCam.StartCapture();
+        }
 
         public bool StopCapture() => hikCam.StopCapture();
 
@@ -128,6 +154,9 @@ namespace DenseLight.Devices
     class HikCamImplement
     {
         private readonly HikCameraService _parent; // 父类引用        
+
+        // 子类定义自己的事件
+        public event Action<Mat> FrameReceived;
 
         private readonly DeviceTLayerType enumTLayerType = DeviceTLayerType.MvGigEDevice |
                 DeviceTLayerType.MvUsbDevice | DeviceTLayerType.MvGenTLCXPDevice |
@@ -181,8 +210,9 @@ namespace DenseLight.Devices
 
         private volatile bool _processThreadExit = false;
 
-
         private volatile bool _isCaptureRunning = false;
+
+        private HikCameraService.FrameReceivedCallback _callback; // 回调函数
 
 
         static void FrameGrabThread(object obj)
@@ -464,9 +494,9 @@ namespace DenseLight.Devices
             }
 
             /*如果是网口相机*/
-            if (device is IGigEDevice)
+            if (_parent.device is IGigEDevice)
             {
-                gigEDevice = device as IGigEDevice;
+                gigEDevice = _parent.device as IGigEDevice;
 
                 /*配置网口相机的最佳包大小*/
                 int packetSize;
@@ -487,10 +517,10 @@ namespace DenseLight.Devices
                     _parent.device = gigEDevice;
                 }
             }
-            else if (device is IUSBDevice)
+            else if (_parent.device is IUSBDevice)
             {
                 /*设置USB同步读写超时时间*/
-                usbDevice = device as IUSBDevice;
+                usbDevice = _parent.device as IUSBDevice;
                 usbDevice.SetSyncTimeOut(1000);
                 _parent.device = usbDevice;
             }
@@ -592,12 +622,13 @@ namespace DenseLight.Devices
             }
         }
 
-        // 修复 CS1628 错误：不能在 lambda/匿名方法中使用 out 参数“mat”
-        // 解决方法：将 out 参数 mat 替换为局部变量，然后在主方法体赋值
 
-        public bool StartCapture(out Mat mat)
+        // TODO 在里面开Thread抓取图片，还没有抓取到图像就return true了
+
+
+        public bool StartCapture()
         {
-            mat = null;
+            //mat = null;
             _grabThreadExit = false;
             _parent._isStartCapture = true;
             if (_parent.device == null)
@@ -627,7 +658,7 @@ namespace DenseLight.Devices
 
             var streamGrabber = _parent.device.StreamGrabber;
 
-            Mat localMat = null; // 局部变量保存采集到的 Mat
+            //Mat localMat = null; // 局部变量保存采集到的 Mat
 
             receivedThread = new Thread(() =>
             {
@@ -646,25 +677,33 @@ namespace DenseLight.Devices
                     {
                         Console.WriteLine("Get one frame: Width[{0}] , Height[{1}] , ImageSize[{2}], FrameNum[{3}]",
                             frame.Image.Width, frame.Image.Height, frame.Image.ImageSize, frame.FrameNum);
-                        //Do some thing
-                        localMat = ConvertToMat(frame.Image); // 将图像转换为Mat格式
 
+                        //Do some thing
+
+                        using (var mat = ConvertToMat(frame.Image))
+                        {
+                            FrameReceived.Invoke(mat.Clone()); // 调用 FrameReceived 事件
+
+                        }
+
+                        //localMat = ConvertToMat(frame.Image); // 将图像转换为Mat格式
+                        //ch: 释放图像缓存  | en: Release the image buffer
+                        streamGrabber.FreeImageBuffer(frame);
                     }
 
-                    //ch: 释放图像缓存  | en: Release the image buffer
-                    streamGrabber.FreeImageBuffer(frame);
+
                 }
 
-            });
-            //{
-            //    Name = "HikCameraReceiveThread",
-            //    Priority = ThreadPriority.AboveNormal,
-            //    IsBackground = true
-            //};
+            })
+            {
+                Name = "HikCameraReceiveThread",
+                Priority = ThreadPriority.AboveNormal,
+                IsBackground = true
+            };
 
             receivedThread.Start();
 
-            mat = localMat; // 线程结束后赋值给 out 参数        
+            //mat = localMat; // 线程结束后赋值给 out 参数        
 
             //_logger.LogInformation("Started grabbing successfully.");
             return true;

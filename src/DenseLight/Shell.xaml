@@ -23,9 +23,10 @@
 
             <Grid>
                 <liftui:ImageViewer 
+                    x:Name="FrameViewer"
                     Margin="5"
                     BorderBrush="SeaGreen"
-                    ImageSource="{Binding }"
+                    ImageSource="{Binding CameraImage}"
                     BorderThickness="1" />
             </Grid>
 

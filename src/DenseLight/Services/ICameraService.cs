@@ -33,7 +33,7 @@ namespace DenseLight.Services
         /// 开始采集
         /// </summary>
         /// <returns></returns>
-        public bool StartCapture(out Mat mat);
+        public bool StartCapture();
 
         /// <summary>
         /// 停止采集

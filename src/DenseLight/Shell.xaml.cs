@@ -2,6 +2,7 @@
 using DenseLight.Devices;
 using DenseLight.Services;
 using DenseLight.ViewModels;
+using Lift.UI.Tools.Extension;
 using Microsoft.Extensions.DependencyInjection;
 using System.Windows;
 using System.Windows.Media.Imaging;
@@ -20,6 +21,11 @@ namespace DenseLight
         {
             InitializeComponent();
             DataContext = App.Current.Services.GetRequiredService<ShellViewModel>();
+
+            if (_hikCameraService.StartCapture())
+            {
+                FrameViewer.Show();
+            }
 
             //_hikCameraService = App.Current.Services.GetRequiredService<HikCameraService>();
             //_hikCameraService = new HikCameraService();

@@ -41,7 +41,7 @@ namespace DenseLight
             // Register business logic services
             services.AddSingleton<AutoFocusService>();
             services.AddSingleton<MotionControlService>();
-            
+
             services.AddSingleton<PositionUpdateService>();
             //services.AddSingleton<FrameRefreshService>();
 
@@ -64,6 +64,8 @@ namespace DenseLight
         protected override void OnStartup(StartupEventArgs e)
         {
             base.OnStartup(e);
+
+
 
             // 用这个会开两次
             //var shell = new Shell

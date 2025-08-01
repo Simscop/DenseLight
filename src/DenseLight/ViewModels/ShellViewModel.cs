@@ -86,9 +86,9 @@ public partial class ShellViewModel : ObservableObject
     private readonly IImageProcessingService _imageProcessing;
     private CancellationTokenSource _autoFocusCts;
 
+    private HikCameraService _hikCam;
 
-
-    public ShellViewModel(IMessenger messenger)
+    public ShellViewModel(IMessenger messenger, HikCameraService hikCamera)
     {
         _messenger = messenger ?? throw new ArgumentNullException(nameof(messenger));
         _logger = new FileLoggerService();
@@ -96,6 +96,8 @@ public partial class ShellViewModel : ObservableObject
         //_hikCamera = App.Current.Services.GetRequiredService<CameraViewModel>();
         //_cameraService = new HikCameraService(_logger);
         //_videoProcessing = new VideoProcessingService(_cameraService, _logger, _imageProcessing);
+
+        _hikCam = hikCamera ?? throw new ArgumentNullException(nameof(hikCamera));
 
         _dispatcher = Dispatcher.CurrentDispatcher;
 
@@ -112,7 +114,20 @@ public partial class ShellViewModel : ObservableObject
         {
             if (m.Frame != null)
             {
-                CameraImage = m.Frame;
+                if (Application.Current.Dispatcher != null && !Application.Current.Dispatcher.CheckAccess())
+                {
+                    // 使用Dispatcher在UI线程更新图像
+                    Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        CameraImage = m.Frame;
+                    });
+                    // 在UI线程更新图像
+                    CameraImage = m.Frame;
+                }
+                else
+                {
+                    CameraImage = m.Frame;
+                }
             }
         });
 

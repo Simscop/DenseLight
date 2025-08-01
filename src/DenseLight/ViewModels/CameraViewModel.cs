@@ -1,16 +1,20 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
+using DenseLight.BusinessLogic;
+using DenseLight.Devices;
 using DenseLight.Services;
+using Lift.UI.Tools;
+using Microsoft.WindowsAPICodePack.Dialogs;
+using OpenCvSharp;
 using OpenCvSharp.WpfExtensions;
 using System.Drawing.Imaging;
-using System.Windows.Media.Imaging;
 using System.IO;
 using System.Reflection.Metadata;
-using OpenCvSharp;
-using Microsoft.WindowsAPICodePack.Dialogs;
 using System.Windows;
-using DenseLight.BusinessLogic;
-using CommunityToolkit.Mvvm.Messaging;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using System.Windows.Threading;
 
 namespace DenseLight.ViewModels
 {
@@ -19,6 +23,7 @@ namespace DenseLight.ViewModels
         private readonly ICameraService _camera;
         private readonly FrameRefreshService _frameRefreshService;
         private readonly IMessenger _messenger = WeakReferenceMessenger.Default;
+        private readonly HikCameraService _hikCamera;
 
         private BitmapFrame? _currentFrame;
 
@@ -56,9 +61,13 @@ namespace DenseLight.ViewModels
 
         private bool _isInit;
 
-        public CameraViewModel(ICameraService camera,  IMessenger messenger)
+        public CameraViewModel(ICameraService camera, IMessenger messenger, HikCameraService hikCamera)
         {
             _messenger = messenger;
+
+            _hikCamera = hikCamera;
+
+            _hikCamera.FrameReceived += OnFrameReceived;
 
             _frameRefreshService = new FrameRefreshService(camera);
 
@@ -69,10 +78,75 @@ namespace DenseLight.ViewModels
             _frameRefreshService.PropertyChanged += OnFrameRefreshService_PropertyChanged;
         }
 
+        private void OnFrameReceived(Mat frame)
+        {
+            try
+            {
+                // 将 OpenCV Mat 转换为 BitmapFrame
+                BitmapFrame bitmapFrame = null;
+                using (frame) // 确保 Mat 被释放
+                {
+                    bitmapFrame = ConvertMatToBitmapFrame(frame);
+                }
+
+                // 在 UI 线程更新
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    CurrentFrame = bitmapFrame;
+                });
+            }
+            catch (Exception ex)
+            {
+                // 错误处理
+            }
+        }
+        private BitmapFrame ConvertMatToBitmapFrame(Mat mat)
+        {
+            if (mat == null || mat.IsDisposed || mat.Empty())
+                return null;
+
+            // 根据 Mat 类型创建 BitmapSource
+            BitmapSource source = null;
+
+            if (mat.Channels() == 1) // 灰度图
+            {
+                source = BitmapSource.Create(
+                    mat.Width, mat.Height, 96, 96,
+                    PixelFormats.Gray8, null,
+                    mat.Data, (int)mat.Step(),
+                    (int)(mat.Width * mat.Channels()));
+            }
+            else if (mat.Channels() == 3) // BGR 彩色图
+            {
+                // OpenCV 是 BGR 格式，需要转换为 RGB
+                using (var rgbMat = new Mat())
+                {
+                    Cv2.CvtColor(mat, rgbMat, ColorConversionCodes.BGR2RGB);
+                    source = BitmapSource.Create(
+                        rgbMat.Width, rgbMat.Height, 96, 96,
+                        PixelFormats.Rgb24, null,
+                        rgbMat.Data, (int)rgbMat.Step(),
+                        (int)(rgbMat.Width * rgbMat.Channels()));
+                }
+            }
+            else if (mat.Channels() == 4) // BGRA 彩色图
+            {
+                source = BitmapSource.Create(
+                    mat.Width, mat.Height, 96, 96,
+                    PixelFormats.Bgra32, null,
+                    mat.Data, (int)mat.Step(),
+                    (int)(mat.Width * mat.Channels()));
+            }
+
+            // 转换为 BitmapFrame
+            return source != null ? BitmapFrame.Create(source) : null;
+        }
+
         private bool ConfigureCamera()
         {
             var isCamInit = _camera.Init();
-            //_camera.Open(); // create device
+            //_camera.Open(); // create device           
+
             return isCamInit;
         }
 
@@ -88,6 +162,7 @@ namespace DenseLight.ViewModels
         {
             _frameRefreshService.PropertyChanged -= OnFrameRefreshService_PropertyChanged;
             _frameRefreshService.Dispose();
+            _hikCamera.FrameReceived -= OnFrameReceived;
             CloseCamera();
         }
 
@@ -235,10 +310,12 @@ namespace DenseLight.ViewModels
             }
         }
 
+        private Dispatcher Dispatcher => Application.Current.Dispatcher;
+
         [RelayCommand]
         void StartCapture()
         {
-            IsStartCapture = _camera.StartCapture(out Mat mat);
+            IsStartCapture = _camera.StartCapture();
             if (!IsStartCapture) { MessageBox.Show("camera is not open"); }
         }
 
