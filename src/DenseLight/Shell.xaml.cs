@@ -21,7 +21,8 @@ namespace DenseLight
             InitializeComponent();
             DataContext = App.Current.Services.GetRequiredService<ShellViewModel>();
 
-            _hikCameraService = App.Current.Services.GetRequiredService<HikCameraService>();
+            //_hikCameraService = App.Current.Services.GetRequiredService<HikCameraService>();
+            _hikCameraService = new HikCameraService();
             _hikCameraService.ImageReady += OnImageReady;
 
             Closed += Shell_Closed;

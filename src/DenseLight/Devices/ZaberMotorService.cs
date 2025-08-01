@@ -157,7 +157,7 @@ namespace DenseLight.Devices
         {
             if (!_zAxis.IsHomed())
             {
-                _zAxis.Home(true);
+                _zAxis.Home();
             }
         }
 

@@ -42,7 +42,7 @@ namespace DenseLight.BusinessLogic
 
             // 正确的事件订阅方式
             // 假设 ICameraService 有 FrameCaptured 事件
-            _camera.FrameCaptured += OnFrameCaptured;
+            //_camera.FrameCaptured += OnFrameCaptured;
         }
 
         private void OnFrameCaptured(object? sender, Bitmap frame)
@@ -123,7 +123,7 @@ namespace DenseLight.BusinessLogic
         public void Dispose()
         {
             StopProcessing();
-            _camera.FrameCaptured -= OnFrameCaptured;
+            //_camera.FrameCaptured -= OnFrameCaptured;
             //_processingCts.Dispose();
 
         }

@@ -2,6 +2,7 @@
 using Lift.UI.Tools;
 using MvCameraControl;
 using OpenCvSharp;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using System.Drawing;
@@ -30,9 +31,11 @@ namespace DenseLight.Devices
 
         public IDevice? device;
 
+        public IList<IDeviceInfo> DevInfoList = new ObservableCollection<IDeviceInfo>();
+
         public HikCameraService()
         {
-            hikCam = new HikCamImplement(this);
+            hikCam = new HikCamImplement(this);           
         }
 
         //public HikCameraService(ILoggerService logger, HikCamImplement hikImp)
@@ -53,30 +56,10 @@ namespace DenseLight.Devices
         {
             SDKSystem.Initialize();
             _isInitialized = true;
-            _logger.LogInformation("Hikvision SDK initialized successfully");
+            //_logger.LogInformation("Hikvision SDK initialized successfully");
         }
 
-        public bool Capture(out Mat mat)
-        {
-            if (!_isInitialized)
-            {
-                _logger.LogError("Hikvision SDK is not initialized.");
-                mat = null;
-                return false;
-            }
-            hikCam.device.StreamGrabber.GetImageBuffer(1000, out frameOut);
-
-            // 替换原有的 mat = new Mat((int)frameOut.Image.Height, (int)frameOut.Image.Width, MatType.CV_8UC3, frameOut.Image.PixelData);
-            // 使用 Mat.FromPixelData 静态方法来创建 Mat 实例
-            mat = Mat.FromPixelData(
-                (int)frameOut.Image.Height,
-                (int)frameOut.Image.Width,
-                MatType.CV_8UC3,
-                frameOut.Image.PixelData
-            );
-
-            return true;
-        }
+        public bool Capture(out Mat mat) => hikCam.Capture(out mat);
 
         public double GetExposure() => hikCam.GetExposure();
 
@@ -145,11 +128,12 @@ namespace DenseLight.Devices
 
     class HikCamImplement
     {
-        private readonly HikCameraService _parent; // 父类引用
+        private readonly HikCameraService _parent; // 父类引用        
 
         private readonly DeviceTLayerType enumTLayerType = DeviceTLayerType.MvGigEDevice |
                 DeviceTLayerType.MvUsbDevice | DeviceTLayerType.MvGenTLCXPDevice |
                 DeviceTLayerType.MvGenTLXoFDevice;
+
         List<IDeviceInfo> devInfoList = new List<IDeviceInfo>();
 
         // 将以下字段声明为可为 null，以消除 CS8618 警告
@@ -185,7 +169,7 @@ namespace DenseLight.Devices
 
         private readonly ILoggerService? _logger;
 
-        public IList<IDeviceInfo> DevInfoList = new ObservableCollection<IDeviceInfo>();
+        
 
         private volatile bool _isCaptureRunning = false;
 
@@ -200,53 +184,71 @@ namespace DenseLight.Devices
         /// <returns></returns>
         public bool InitializeCam()
         {
-            devInfoList.Clear(); // 清空设备列表
+            _parent.DevInfoList.Clear(); // 清空设备列表
             int ret = DeviceEnumerator.EnumDevices(enumTLayerType, out devInfoList); // 枚举设备
 
             if (0 == devInfoList.Count)
             {
-                _logger.LogWarning("No Hikvision camera found");
+                //_logger.LogWarning("No Hikvision camera found");
                 return false;
             }
             if (ret != MvError.MV_OK)
             {
                 ShowErrorMsg("Enum device failed", ret);
-                _logger.LogError("Enum device failed");
+                //_logger.LogError("Enum device failed");
                 return false;
             }
             for (int i = 0; i < devInfoList.Count; i++)
             {
                 deviceInfo = devInfoList[i];
-                DevInfoList.Add(deviceInfo);
+                _parent.DevInfoList.Add(deviceInfo);
             }
+
+            return true;
+        }
+
+        public bool Capture(out Mat mat)
+        {            
+            if (_parent.device == null) { mat = null; return false; }
+            _parent.device.StreamGrabber.GetImageBuffer(1000, out frameOut);
+
+            // 替换原有的 mat = new Mat((int)frameOut.Image.Height, (int)frameOut.Image.Width, MatType.CV_8UC3, frameOut.Image.PixelData);
+            // 使用 Mat.FromPixelData 静态方法来创建 Mat 实例
+            mat = Mat.FromPixelData(
+                (int)frameOut.Image.Height,
+                (int)frameOut.Image.Width,
+                MatType.CV_8UC3,
+                frameOut.Image.PixelData
+            );
 
             return true;
         }
 
         public bool OpenCam()
         {
-            if (devInfoList.Count == 0)
+            if (_parent.DevInfoList.Count == 0)
             {
-                _logger.LogWarning("No devices found.");
+                //_logger.LogWarning("No devices found.");
                 return false;
             }
 
             // 获取选择的设备信息
-            deviceInfo = devInfoList[_selectedIndex];
+            deviceInfo = _parent.DevInfoList[_selectedIndex];
 
             try
             {
                 // 打开设备
                 device = DeviceFactory.CreateDevice(deviceInfo);
+                _parent.device = device;
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Failed to create device: {ex.Message}");
+                //_logger.LogError($"Failed to create device: {ex.Message}");
                 MessageBox.Show($"Failed to create device: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 return false;
             }
 
-            int ret = device.Open();
+            int ret = _parent.device.Open();
 
             if (ret != MvError.MV_OK)
             {
@@ -275,6 +277,7 @@ namespace DenseLight.Devices
                         ShowErrorMsg("Set packet size failed", ret);
                         return false;
                     }
+                    _parent.device = gigEDevice;
                 }
             }
             else if (device is IUSBDevice)
@@ -282,6 +285,7 @@ namespace DenseLight.Devices
                 /*设置USB同步读写超时时间*/
                 usbDevice = device as IUSBDevice;
                 usbDevice.SetSyncTimeOut(1000);
+                _parent.device = usbDevice;
             }
 
             return true;
@@ -290,9 +294,9 @@ namespace DenseLight.Devices
 
         public void CloseCam()
         {
-            if (device == null)
+            if (_parent.device == null)
             {
-                _logger.LogWarning("Device is not initialized.");
+                //_logger.LogWarning("Device is not initialized.");
                 return;
             }
             // 停止采集
@@ -301,37 +305,37 @@ namespace DenseLight.Devices
                 StopCapture();
             }
             // 关闭设备
-            int ret = device.Close();
+            int ret = _parent.device.Close();
             if (ret != MvError.MV_OK)
             {
                 ShowErrorMsg("Close device failed", ret);
-                _logger.LogError("Close device failed");
+                //_logger.LogError("Close device failed");
             }
             else
             {
-                _logger.LogInformation("Device closed successfully.");
+                //_logger.LogInformation("Device closed successfully.");
             }
-            device = null; // 清空设备引用
+            _parent.device = null; // 清空设备引用
         }
 
         public void ConfigureCam()
         {
-            if (device == null)
+            if (_parent.device == null)
             {
-                _logger.LogError("Device is not initialized.");
+                //_logger.LogError("Device is not initialized.");
                 return;
             }
             // 配置相机参数 设置连续采集模式
-            device.Parameters.SetEnumValueByString("AcquisitionMode", "Continuous");
-            device.Parameters.SetEnumValueByString("TriggerMode", "Off");
+            _parent.device.Parameters.SetEnumValueByString("AcquisitionMode", "Continuous");
+            _parent.device.Parameters.SetEnumValueByString("TriggerMode", "Off");
 
         }
 
         public bool SetExposure(float exposure)
         {
             _exposureTime = (float)exposure;
-            device.Parameters.SetEnumValue("ExposureAuto", 0);
-            int ret = device.Parameters.SetFloatValue("ExposureTime", _exposureTime);
+            _parent.device.Parameters.SetEnumValue("ExposureAuto", 0);
+            int ret = _parent.device.Parameters.SetFloatValue("ExposureTime", _exposureTime);
             if (ret != MvError.MV_OK)
             {
                 ShowErrorMsg("Set exposure time failed", ret);
@@ -345,8 +349,9 @@ namespace DenseLight.Devices
 
         public bool SetGain(float gain)
         {
+            //device = _parent.device;
             _gain = gain;
-            device.Parameters.SetEnumValue("GainAuto", 0);
+            _parent.device.Parameters.SetEnumValue("GainAuto", 0);
             int ret = device.Parameters.SetFloatValue("Gain", _gain);
             if (ret != MvError.MV_OK)
             {
@@ -362,7 +367,7 @@ namespace DenseLight.Devices
         public bool SetAcquisitionFrameRate(float frameRate)
         {
             _frameRate = frameRate;
-            int ret = device.Parameters.SetBoolValue("AcquisitionFrameRateEnable", true);
+            int ret = _parent.device.Parameters.SetBoolValue("AcquisitionFrameRateEnable", true);
             if (ret != MvError.MV_OK)
             {
                 ShowErrorMsg("Set AcquisitionFrameRateEnable failed", ret);
@@ -370,7 +375,7 @@ namespace DenseLight.Devices
             }
             else
             {
-                ret = device.Parameters.SetFloatValue("AcquisitionFrameRate", _frameRate);
+                ret = _parent.device.Parameters.SetFloatValue("AcquisitionFrameRate", _frameRate);
                 if (ret != MvError.MV_OK)
                 {
                     ShowErrorMsg("Set Frame Rate Fail!", ret);
@@ -384,17 +389,17 @@ namespace DenseLight.Devices
         /// 连续采集
         /// </summary>
         public bool StartCapture()
-        {
-            if (device == null)
+        {            
+            if (_parent.device == null)
             {
-                _logger.LogError("Device is not initialized.");
+                //_logger.LogError("Device is not initialized.");
                 return false;
             }
 
-            device.StreamGrabber.SetImageNodeNum(9);
+            _parent.device.StreamGrabber.SetImageNodeNum(9);
 
             // 开启抓图
-            int ret = device.StreamGrabber.StartGrabbing(StreamGrabStrategy.OneByOne);
+            int ret = _parent.device.StreamGrabber.StartGrabbing(StreamGrabStrategy.OneByOne);
             if (ret != MvError.MV_OK)
             {
                 isGrabbing = false;
@@ -410,31 +415,31 @@ namespace DenseLight.Devices
                 Priority = ThreadPriority.AboveNormal,
                 IsBackground = true
             };
-            receivedThread.Start(device.StreamGrabber);
-            _logger.LogInformation("Started grabbing successfully.");
+            receivedThread.Start(_parent.device.StreamGrabber);
+            //_logger.LogInformation("Started grabbing successfully.");
             return true;
         }
 
         public bool StopCapture()
-        {
+        {            
             if (!isGrabbing)
             {
-                _logger.LogWarning("Camera is not currently grabbing.");
+                //_logger.LogWarning("Camera is not currently grabbing.");
                 return false;
             }
             StopThreadProcess(); // 停止接收线程
 
             // 停止采集
-            int ret = device.StreamGrabber.StopGrabbing();
+            int ret = _parent.device.StreamGrabber.StopGrabbing();
             if (ret != MvError.MV_OK)
             {
-                _logger.LogError($"Stop grabbing failed: {ret}");
+                //_logger.LogError($"Stop grabbing failed: {ret}");
                 ShowErrorMsg("Stop grabbing failed", ret);
                 return false;
             }
             else
             {
-                _logger.LogInformation("Stopped grabbing successfully.");
+                //_logger.LogInformation("Stopped grabbing successfully.");
 
             }
 
@@ -447,7 +452,7 @@ namespace DenseLight.Devices
                 frame.Dispose();
             }
 
-            _logger.LogInformation("Cleared image queue and stopped capture.");
+            //_logger.LogInformation("Cleared image queue and stopped capture.");
             return true;
         }
 
@@ -455,20 +460,20 @@ namespace DenseLight.Devices
         /// 保存图像到本地文件
         /// </summary>
         public void SaveCapture(string path)
-        {
-            int ret = device.StreamGrabber.GetImageBuffer(1000, out frameOut); // 获取一帧图像
+        {            
+            int ret = _parent.device.StreamGrabber.GetImageBuffer(1000, out frameOut); // 获取一帧图像
             if (ret == MvError.MV_OK && frameOut != null)
             {
                 ImageFormatInfo imageFormatInfo = new ImageFormatInfo();
                 imageFormatInfo.FormatType = ImageFormatType.Bmp; // 设置图像格式为 BMP
 
                 // 保存图像到文件
-                device.ImageSaver.SaveImageToFile(path, frameOut.Image, imageFormatInfo, CFAMethod.Optimal);
-                device.StreamGrabber.FreeImageBuffer(frameOut); // 释放图像缓冲区
+                _parent.device.ImageSaver.SaveImageToFile(path, frameOut.Image, imageFormatInfo, CFAMethod.Optimal);
+                _parent.device.StreamGrabber.FreeImageBuffer(frameOut); // 释放图像缓冲区
             }
             else
             {
-                _logger.LogError($"Get image buffer failed: {ret}");
+                //_logger.LogError($"Get image buffer failed: {ret}");
                 ShowErrorMsg("Get image buffer failed", ret);
             }
         }
@@ -477,16 +482,16 @@ namespace DenseLight.Devices
 
 
         public void ReceiveThreadProcess()
-        {
+        {            
             _isCaptureRunning = true;
-            _logger.LogInformation("Receive thread started.");
+            //_logger.LogInformation("Receive thread started.");
             // 轮询取图
             while (_isCaptureRunning)
             {
-                int result = device.StreamGrabber.GetImageBuffer(1000, out frameOut); // 获取一帧图像
+                int result = _parent.device.StreamGrabber.GetImageBuffer(1000, out frameOut); // 获取一帧图像
                 if (frameOut == null)
                 {
-                    _logger.LogError("Failed to get image buffer.");
+                    //_logger.LogError("Failed to get image buffer.");
                     Thread.Sleep(100); // 等待一段时间后重试
                     continue;
                 }
@@ -497,7 +502,7 @@ namespace DenseLight.Devices
                     {
                         if (bitmap != null)
                         {
-                            _logger.LogInformation($"Received image: Width={bitmap.Width}, Height={bitmap.Height}");
+                            //_logger.LogInformation($"Received image: Width={bitmap.Width}, Height={bitmap.Height}");
                             // 这里可以添加处理图像的逻辑
                             // 例如：显示图像、保存图像等
                             _frameQueue.Enqueue(bitmap); // 将图像添加到队列中
@@ -510,15 +515,15 @@ namespace DenseLight.Devices
                         }
                         else
                         {
-                            _logger.LogError("Received image is null.");
+                            //_logger.LogError("Received image is null.");
                         }
-                        device.StreamGrabber.FreeImageBuffer(frameOut); // 释放图像缓冲区
+                        _parent.device.StreamGrabber.FreeImageBuffer(frameOut); // 释放图像缓冲区
                     }
 
                 }
                 else
                 {
-                    _logger.LogError($"Get image buffer failed: {result}");
+                    //_logger.LogError($"Get image buffer failed: {result}");
                     ShowErrorMsg("Get image buffer failed", result);
                     Thread.Sleep(50); // 等待一段时间后重试
                 }
@@ -559,18 +564,18 @@ namespace DenseLight.Devices
                     receivedThread.Interrupt(); // 如果线程在3秒内没有结束，则强制中断
                 }
                 receivedThread = null; // 清空线程引用
-                _logger.LogInformation("Receive thread stopped.");
+                //_logger.LogInformation("Receive thread stopped.");
             }
         }
 
         public double GetExposure()
-        {
+        {            
             // 获取相机的参数
-            int ret = device.Parameters.GetFloatValue("ExposureTime", out floatValue);
+            int ret = _parent.device.Parameters.GetFloatValue("ExposureTime", out floatValue);
             if (ret == MvError.MV_OK)
             {
                 _exposureTime = floatValue.CurValue;
-                _logger.LogInformation($"Exposure Time: {_exposureTime} us");
+                //_logger.LogInformation($"Exposure Time: {_exposureTime} us");
                 return _exposureTime;
             }
             else
@@ -591,12 +596,12 @@ namespace DenseLight.Devices
         }
 
         public double GetFrameRate()
-        {
-            int ret = device.Parameters.GetFloatValue("ResultingFrameRate", out floatValue);
+        {            
+            int ret = _parent.device.Parameters.GetFloatValue("ResultingFrameRate", out floatValue);
             if (ret == MvError.MV_OK)
             {
                 _frameRate = floatValue.CurValue;
-                _logger.LogInformation($"Frame Rate: {_frameRate} fps");
+                //_logger.LogInformation($"Frame Rate: {_frameRate} fps");
                 return _frameRate;
             }
             else
@@ -607,12 +612,12 @@ namespace DenseLight.Devices
         }
 
         public double GetGain()
-        {
-            int ret = device.Parameters.GetFloatValue("Gain", out gainValue);
+        {            
+            int ret = _parent.device.Parameters.GetFloatValue("Gain", out gainValue);
             if (ret == MvError.MV_OK)
             {
                 _gain = gainValue.CurValue;
-                _logger.LogInformation($"Gain: {_gain}");
+                //_logger.LogInformation($"Gain: {_gain}");
                 return _gain;
             }
             else
@@ -622,12 +627,12 @@ namespace DenseLight.Devices
         }
 
         public string GetPixelFormat()
-        {
-            int ret = device.Parameters.GetEnumValue("PixelFormat", out enumValue);
+        {            
+            int ret = _parent.device.Parameters.GetEnumValue("PixelFormat", out enumValue);
             if (ret == MvError.MV_OK)
             {
                 _enum = enumValue.CurEnumEntry.Symbolic;
-                _logger.LogDebug($"Pixel Format: {_enum}");
+                //_logger.LogDebug($"Pixel Format: {_enum}");
                 return _enum;
             }
             else
@@ -639,7 +644,7 @@ namespace DenseLight.Devices
 
         public void Dispose()
         {
-            device.Dispose();
+            _parent.device.Dispose();
             device = null;
         }
 

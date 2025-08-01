@@ -36,16 +36,19 @@ namespace DenseLight.ViewModels
         [ObservableProperty]
         private bool _isStartCapture = false; // 是否开始捕获
 
+        private bool _isInit;
+
         public CameraViewModel(ICameraService camera)
         {
             _camera = camera ?? throw new ArgumentNullException(nameof(camera));
-            ConfigureCamera();
+            _isInit = ConfigureCamera();
         }
 
-        private void ConfigureCamera()
+        private bool ConfigureCamera()
         {
-            _camera.Init();
-            _camera.Open(); // create device
+            var isCamInit = _camera.Init();
+            //_camera.Open(); // create device
+            return isCamInit;
         }
 
 
@@ -55,7 +58,8 @@ namespace DenseLight.ViewModels
         {
             try
             {
-                if (!_camera.Open()) _camera.Open();
+                var isOpen = _camera.Open();
+                if (!isOpen) { return; }
                 ExposureTime = _camera.GetExposure();
                 Gain = _camera.GetGain();
                 FrameRate = _camera.GetFrameRate();
@@ -85,15 +89,16 @@ namespace DenseLight.ViewModels
         [RelayCommand]
         void Capture()
         {
-            var isSetExposure = _camera.SetExposure((float)ExposureTime); // 这里强转可能要丢失信息
-            var isSetGain = _camera.SetGain((float)Gain);
+            //var isSetExposure = _camera.SetExposure((float)ExposureTime); // 这里强转可能要丢失信息
+            //var isSetGain = _camera.SetGain((float)Gain);
 
-            if (!isSetExposure || !isSetGain)
-            {
-                // 处理设置曝光或增益失败的情况
-                Console.WriteLine("Failed to set exposure or gain.");
-                return;
-            }
+            //if (!isSetExposure || !isSetGain)
+            //{
+            //    // 处理设置曝光或增益失败的情况
+            //    Console.WriteLine("Failed to set exposure or gain.");
+            //    return;
+            //}
+            if (!_isInit) { return; }
 
             _camera.Capture(out var mat);
             CurrentFrame = mat?.ToBitmapSource() is { } bitmap ? BitmapFrame.Create(bitmap) : null;
