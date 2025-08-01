@@ -54,7 +54,7 @@ namespace DenseLight.BusinessLogic
             try
             {
                 // 捕获一帧图像
-                if (_cameraService.Capture(out Mat newFrame) || _cameraService.StartCapture(out newFrame))
+                if (_cameraService.Capture(out Mat newFrame) || _cameraService.StartCapture())
                 {
                     frame = newFrame;
                     PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(frame)));

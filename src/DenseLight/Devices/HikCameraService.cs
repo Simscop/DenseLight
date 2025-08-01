@@ -31,22 +31,35 @@ namespace DenseLight.Devices
         // 定义事件
         public event Action<Mat> FrameReceived;
 
-        protected virtual void OnFrameReceived(Mat frame)
+        private void OnFrameReceived(Mat frame)
         {
             FrameReceived?.Invoke(frame);
         }
-
+        // 处理子类传来的帧
+        private void HandleChildFrame(Mat frame)
+        {
+            try
+            {
+                // 关键：触发接口事件
+                FrameReceived?.Invoke(frame);
+            }
+            finally
+            {
+                // 确保释放资源
+                frame?.Dispose();
+            }
+        }
         // 定义回调委托
-        public delegate void FrameReceivedCallback(Mat frame);
+        //public delegate void FrameReceivedCallback(Mat frame);
 
         // 存储回调的引用
-        private FrameReceivedCallback _frameCallback;
+        //private FrameReceivedCallback _frameCallback;
 
         // 方法：将回调传递给子类
-        public void RegisterFrameCallback(FrameReceivedCallback callback)
-        {
-            _frameCallback = callback;
-        }
+        //public void RegisterFrameCallback(FrameReceivedCallback callback)
+        //{
+        //    _frameCallback = callback;
+        //}
 
         IFrameOut frameOut = null;
 
@@ -60,6 +73,7 @@ namespace DenseLight.Devices
         public HikCameraService()
         {
             hikCam = new HikCamImplement(this);
+            hikCam.FrameReceived += HandleChildFrame;
         }
 
         //public HikCameraService(ILoggerService logger, HikCamImplement hikImp)
@@ -126,7 +140,12 @@ namespace DenseLight.Devices
 
         public bool StopCapture() => hikCam.StopCapture();
 
-        public void Dispose() => hikCam.Dispose();
+        public void Dispose()
+        {
+            hikCam.Dispose();
+            //hikCam.FrameReceived-= (frame) => OnFrameReceived(frame);
+            hikCam.FrameReceived -= HandleChildFrame;
+        }
 
         public void Configure() => hikCam.ConfigureCam();
 
@@ -212,7 +231,7 @@ namespace DenseLight.Devices
 
         private volatile bool _isCaptureRunning = false;
 
-        private HikCameraService.FrameReceivedCallback _callback; // 回调函数
+        //private HikCameraService.FrameReceivedCallback _callback; // 回调函数
 
 
         static void FrameGrabThread(object obj)
@@ -310,7 +329,7 @@ namespace DenseLight.Devices
             //_processThreadExit = true; // 通知异步处理线程退出
             //_asyncProcessThread.Join(); // 等待异步处理线程结束
             var streamGrabber = _parent.device.StreamGrabber;
-
+            _grabThreadExit = false;
             Mat localMat = null;
 
             Thread GrabThread = new Thread(() =>
@@ -682,7 +701,12 @@ namespace DenseLight.Devices
 
                         using (var mat = ConvertToMat(frame.Image))
                         {
-                            FrameReceived.Invoke(mat.Clone()); // 调用 FrameReceived 事件
+                            var handler = FrameReceived;
+                            if (handler != null)
+                            {
+                                handler(mat.Clone());
+                            }
+                            //FrameReceived.Invoke(mat.Clone()); // 调用 FrameReceived 事件
 
                         }
 

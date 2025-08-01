@@ -88,7 +88,7 @@ namespace DenseLight.BusinessLogic
 
             _processingCts = new CancellationTokenSource();
 
-            _camera.StartCapture(out Mat mat);
+            _camera.StartCapture();
 
             _logger.LogInformation($"Starting video processing at {_targetFps} FPS");
         }

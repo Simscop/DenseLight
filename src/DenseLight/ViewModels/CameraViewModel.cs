@@ -25,6 +25,8 @@ namespace DenseLight.ViewModels
         private readonly IMessenger _messenger = WeakReferenceMessenger.Default;
         private readonly HikCameraService _hikCamera;
 
+        private DateTime _lastUpdate = DateTime.MinValue;
+
         private BitmapFrame? _currentFrame;
 
         public BitmapFrame? CurrentFrame
@@ -61,45 +63,106 @@ namespace DenseLight.ViewModels
 
         private bool _isInit;
 
-        public CameraViewModel(ICameraService camera, IMessenger messenger, HikCameraService hikCamera)
+        public CameraViewModel(ICameraService camera, IMessenger messenger)
         {
             _messenger = messenger;
-
-            _hikCamera = hikCamera;
-
-            _hikCamera.FrameReceived += OnFrameReceived;
-
-            _frameRefreshService = new FrameRefreshService(camera);
-
             _camera = camera ?? throw new ArgumentNullException(nameof(camera));
+            //_hikCamera = new HikCameraService();
+
+            _camera.FrameReceived += OnFrameReceived;
+
+            //_frameRefreshService = new FrameRefreshService(camera);
+
+            
             //_frameRefreshService = frameRefreshService ?? throw new ArgumentNullException(nameof(frameRefreshService));
             _isInit = ConfigureCamera();
 
-            _frameRefreshService.PropertyChanged += OnFrameRefreshService_PropertyChanged;
+            //_frameRefreshService.PropertyChanged += OnFrameRefreshService_PropertyChanged;
         }
+
 
         private void OnFrameReceived(Mat frame)
         {
             try
             {
                 // 将 OpenCV Mat 转换为 BitmapFrame
-                BitmapFrame bitmapFrame = null;
-                using (frame) // 确保 Mat 被释放
+                //BitmapFrame bitmapFrame = null;
+                //using (frame) // 确保 Mat 被释放
+                //{
+                //    bitmapFrame = ConvertMatToBitmapFrame(frame);
+                //}
+                // 限制33帧
+                if ((DateTime.Now - _lastUpdate).TotalMilliseconds < 33)
                 {
-                    bitmapFrame = ConvertMatToBitmapFrame(frame);
+                    frame.Dispose();
+                    return;
                 }
-
+                _lastUpdate = DateTime.Now;
                 // 在 UI 线程更新
                 Application.Current.Dispatcher.Invoke(() =>
                 {
-                    CurrentFrame = bitmapFrame;
+                    using (frame)
+                    {
+                        //CurrentFrame = bitmapFrame;
+                        UpdateImage(frame);
+                    }
+                   
                 });
             }
             catch (Exception ex)
             {
                 // 错误处理
+                frame.Dispose();
             }
         }
+
+        private WriteableBitmap _writeableBitmap;
+
+        private unsafe void UpdateImage(Mat frame)
+        {
+            if (frame == null || frame.IsDisposed || frame.Empty()) return;
+
+            try
+            {
+                int width = frame.Width;
+                int height = frame.Height;
+                int channels = frame.Channels();
+
+                System.Windows.Media.PixelFormat format = PixelFormats.Bgr24;
+                if (channels == 1) format = PixelFormats.Gray8;
+                else if (channels == 4) format = PixelFormats.Bgra32;
+
+                if (_writeableBitmap == null || _writeableBitmap.PixelWidth != width || _writeableBitmap.PixelHeight != height || _writeableBitmap.Format != format)
+                {
+                    _writeableBitmap = new WriteableBitmap(width, height, 96, 96, format, null);
+                }
+
+                _writeableBitmap.Lock();
+                try
+                {
+                    int bufferSize = height * (int)frame.Step();
+
+                    Buffer.MemoryCopy((void*)frame.Data,
+                        (void*)_writeableBitmap.BackBuffer, bufferSize, bufferSize);
+
+                    _writeableBitmap.AddDirtyRect(new Int32Rect(0, 0, width, height));
+                }
+                finally {
+                    _writeableBitmap.Unlock();
+                }
+
+                CurrentFrame = BitmapFrame.Create(_writeableBitmap);
+
+
+            }
+            catch { }
+            finally
+            {
+                frame.Dispose();
+            }
+
+        }
+
         private BitmapFrame ConvertMatToBitmapFrame(Mat mat)
         {
             if (mat == null || mat.IsDisposed || mat.Empty())
@@ -163,6 +226,7 @@ namespace DenseLight.ViewModels
             _frameRefreshService.PropertyChanged -= OnFrameRefreshService_PropertyChanged;
             _frameRefreshService.Dispose();
             _hikCamera.FrameReceived -= OnFrameReceived;
+            _writeableBitmap = null;
             CloseCamera();
         }
 

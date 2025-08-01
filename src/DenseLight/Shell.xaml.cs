@@ -22,10 +22,10 @@ namespace DenseLight
             InitializeComponent();
             DataContext = App.Current.Services.GetRequiredService<ShellViewModel>();
 
-            if (_hikCameraService.StartCapture())
-            {
-                FrameViewer.Show();
-            }
+            //if (_hikCameraService.StartCapture())
+            //{
+            //    FrameViewer.Show();
+            //}
 
             //_hikCameraService = App.Current.Services.GetRequiredService<HikCameraService>();
             //_hikCameraService = new HikCameraService();

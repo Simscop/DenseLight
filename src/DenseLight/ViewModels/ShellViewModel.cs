@@ -88,7 +88,7 @@ public partial class ShellViewModel : ObservableObject
 
     private HikCameraService _hikCam;
 
-    public ShellViewModel(IMessenger messenger, HikCameraService hikCamera)
+    public ShellViewModel(IMessenger messenger)
     {
         _messenger = messenger ?? throw new ArgumentNullException(nameof(messenger));
         _logger = new FileLoggerService();
@@ -97,7 +97,7 @@ public partial class ShellViewModel : ObservableObject
         //_cameraService = new HikCameraService(_logger);
         //_videoProcessing = new VideoProcessingService(_cameraService, _logger, _imageProcessing);
 
-        _hikCam = hikCamera ?? throw new ArgumentNullException(nameof(hikCamera));
+        //_hikCam = hikCamera ?? throw new ArgumentNullException(nameof(hikCamera));
 
         _dispatcher = Dispatcher.CurrentDispatcher;
 

@@ -113,6 +113,8 @@ namespace DenseLight.Services
 
         public event EventHandler<Bitmap> FrameCaptured;
 
+        event Action<Mat> FrameReceived;
+
         public void Dispose();
     }
 }
