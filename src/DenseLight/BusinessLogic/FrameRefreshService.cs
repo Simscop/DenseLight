@@ -1,6 +1,7 @@
 ﻿using DenseLight.Services;
 using OpenCvSharp;
 using System.ComponentModel;
+using System.Windows;
 
 namespace DenseLight.BusinessLogic
 {
@@ -24,10 +25,15 @@ namespace DenseLight.BusinessLogic
             // 初始化相机
             if (!_cameraService.Init())
             {
-                throw new InvalidOperationException("Camera initialization failed.");
+                MessageBox.Show("相机未连接！");
+                return;
             }
+
+
             // 创建定时器，每隔100毫秒刷新一次帧
-            _refreshTimer = new Timer(RefreshFrameCallback, null, TimeSpan.Zero, TimeSpan.FromMilliseconds(100));
+            //_refreshTimer = new Timer(RefreshFrameCallback, null, TimeSpan.Zero, TimeSpan.FromMilliseconds(1000));
+
+
         }
 
         private void RefreshFrameCallback(object? state)

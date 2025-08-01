@@ -41,9 +41,11 @@ namespace DenseLight
             // Register business logic services
             services.AddSingleton<AutoFocusService>();
             services.AddSingleton<MotionControlService>();
-            services.AddSingleton<VideoProcessingService>();
+            
             services.AddSingleton<PositionUpdateService>();
-            services.AddSingleton<FrameRefreshService>();
+            //services.AddSingleton<FrameRefreshService>();
+
+            //services.AddSingleton<VideoProcessingService>();
 
             // Register video processing service
             services.AddSingleton<IImageProcessingService, ImageProcessingService>();

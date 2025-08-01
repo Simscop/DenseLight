@@ -56,12 +56,14 @@ namespace DenseLight.ViewModels
 
         private bool _isInit;
 
-        public CameraViewModel(ICameraService camera, FrameRefreshService frameRefreshService, IMessenger messenger)
+        public CameraViewModel(ICameraService camera,  IMessenger messenger)
         {
             _messenger = messenger;
 
+            _frameRefreshService = new FrameRefreshService(camera);
+
             _camera = camera ?? throw new ArgumentNullException(nameof(camera));
-            _frameRefreshService = frameRefreshService ?? throw new ArgumentNullException(nameof(frameRefreshService));
+            //_frameRefreshService = frameRefreshService ?? throw new ArgumentNullException(nameof(frameRefreshService));
             _isInit = ConfigureCamera();
 
             _frameRefreshService.PropertyChanged += OnFrameRefreshService_PropertyChanged;

@@ -16,7 +16,7 @@ using Zaber.Motion.Ascii;
 
 namespace DenseLight.ViewModels;
 
-public partial class ShellViewModel : ObservableObject, IDisposable
+public partial class ShellViewModel : ObservableObject
 {
     private SteerViewModel _motor;
     private CameraViewModel _hikCamera;
@@ -26,7 +26,7 @@ public partial class ShellViewModel : ObservableObject, IDisposable
     private IImageProcessingService _imageProcessingService;
     private ZaberMotorService _zaberMotorService;
 
-    private VideoProcessingService _videoProcessing;
+    //private VideoProcessingService _videoProcessing;
     private Dispatcher _dispatcher;
     private WriteableBitmap _currentFrame;
 
@@ -93,9 +93,9 @@ public partial class ShellViewModel : ObservableObject, IDisposable
         _messenger = messenger ?? throw new ArgumentNullException(nameof(messenger));
         _logger = new FileLoggerService();
         _motor = App.Current.Services.GetRequiredService<SteerViewModel>();
-        _hikCamera = App.Current.Services.GetRequiredService<CameraViewModel>();
+        //_hikCamera = App.Current.Services.GetRequiredService<CameraViewModel>();
         //_cameraService = new HikCameraService(_logger);
-        _videoProcessing = new VideoProcessingService(_cameraService, _logger, _imageProcessing);
+        //_videoProcessing = new VideoProcessingService(_cameraService, _logger, _imageProcessing);
 
         _dispatcher = Dispatcher.CurrentDispatcher;
 
@@ -121,140 +121,140 @@ public partial class ShellViewModel : ObservableObject, IDisposable
 
     #region 相机
 
-    [RelayCommand]
-    private void StartVideo()
-    {
-        if (_isProcessing) return;
+    //[RelayCommand]
+    //private void StartVideo()
+    //{
+    //    if (_isProcessing) return;
 
-        try
-        {
-            _videoProcessing.StartProcessing(_targetFps);
-            IsProcessing = true;
-        }
-        catch (Exception ex)
-        {
-            MessageBox.Show($"Failed to start video: {ex.Message}", "Error",
-                MessageBoxButton.OK, MessageBoxImage.Error);
-        }
-    }
+    //    try
+    //    {
+    //        _videoProcessing.StartProcessing(_targetFps);
+    //        IsProcessing = true;
+    //    }
+    //    catch (Exception ex)
+    //    {
+    //        MessageBox.Show($"Failed to start video: {ex.Message}", "Error",
+    //            MessageBoxButton.OK, MessageBoxImage.Error);
+    //    }
+    //}
 
-    [RelayCommand]
-    private void StopVideo()
-    {
-        if (!_isProcessing) return;
+    //[RelayCommand]
+    //private void StopVideo()
+    //{
+    //    if (!_isProcessing) return;
 
-        _videoProcessing.StopProcessing();
-        IsProcessing = false;
-    }
+    //    _videoProcessing.StopProcessing();
+    //    IsProcessing = false;
+    //}
 
-    [RelayCommand]
-    private void UpdateFrameRate()
-    {
-        if (_isProcessing)
-        {
-            _videoProcessing.SetFrameRate(_targetFps);
-        }
-    }
+    //[RelayCommand]
+    //private void UpdateFrameRate()
+    //{
+    //    if (_isProcessing)
+    //    {
+    //        _videoProcessing.SetFrameRate(_targetFps);
+    //    }
+    //}
 
-    private void OnFocusScoreUpdated(object? sender, double score)
-    {
-        _dispatcher.Invoke(() =>
-        {
-            FocusScore = score;
-        });
-    }
+    //private void OnFocusScoreUpdated(object? sender, double score)
+    //{
+    //    _dispatcher.Invoke(() =>
+    //    {
+    //        FocusScore = score;
+    //    });
+    //}
 
-    private void OnFrameProcessed(object? sender, Bitmap bitmap)
-    {
-        // 在UI线程更新图像
-        _dispatcher.Invoke(() =>
-        {
-            try
-            {
-                // 在UI线程更新图像
-                // 创建或更新WriteableBitmap
-                if (CurrentFrame == null ||
-                    CurrentFrame.PixelWidth != bitmap.Width ||
-                    CurrentFrame.PixelHeight != bitmap.Height)
-                {
-                    CurrentFrame = new WriteableBitmap(
-                        bitmap.Width,
-                        bitmap.Height,
-                        96, 96,
-                        System.Windows.Media.PixelFormats.Bgr24,
-                        null);
-                }
+    //private void OnFrameProcessed(object? sender, Bitmap bitmap)
+    //{
+    //    // 在UI线程更新图像
+    //    _dispatcher.Invoke(() =>
+    //    {
+    //        try
+    //        {
+    //            // 在UI线程更新图像
+    //            // 创建或更新WriteableBitmap
+    //            if (CurrentFrame == null ||
+    //                CurrentFrame.PixelWidth != bitmap.Width ||
+    //                CurrentFrame.PixelHeight != bitmap.Height)
+    //            {
+    //                CurrentFrame = new WriteableBitmap(
+    //                    bitmap.Width,
+    //                    bitmap.Height,
+    //                    96, 96,
+    //                    System.Windows.Media.PixelFormats.Bgr24,
+    //                    null);
+    //            }
 
-                // 锁定位图
-                CurrentFrame.Lock();
+    //            // 锁定位图
+    //            CurrentFrame.Lock();
 
-                // 将Bitmap数据复制到WriteableBitmap
-                var sourceData = bitmap.LockBits(
-                    new Rectangle(0, 0, bitmap.Width, bitmap.Height),
-                    System.Drawing.Imaging.ImageLockMode.ReadOnly,
-                    System.Drawing.Imaging.PixelFormat.Format24bppRgb);
+    //            // 将Bitmap数据复制到WriteableBitmap
+    //            var sourceData = bitmap.LockBits(
+    //                new Rectangle(0, 0, bitmap.Width, bitmap.Height),
+    //                System.Drawing.Imaging.ImageLockMode.ReadOnly,
+    //                System.Drawing.Imaging.PixelFormat.Format24bppRgb);
 
-                CurrentFrame.WritePixels(
-                    new Int32Rect(0, 0, bitmap.Width, bitmap.Height),
-                    sourceData.Scan0,
-                    bitmap.Width * bitmap.Height * 3,
-                    bitmap.Width * 3);
+    //            CurrentFrame.WritePixels(
+    //                new Int32Rect(0, 0, bitmap.Width, bitmap.Height),
+    //                sourceData.Scan0,
+    //                bitmap.Width * bitmap.Height * 3,
+    //                bitmap.Width * 3);
 
-                bitmap.UnlockBits(sourceData);
-                CurrentFrame.Unlock();
-            }
-            catch (Exception ex)
-            {
-                // 处理图像显示错误
-            }
-            finally
-            {
-                bitmap.Dispose();
-            }
-        });
-    }
+    //            bitmap.UnlockBits(sourceData);
+    //            CurrentFrame.Unlock();
+    //        }
+    //        catch (Exception ex)
+    //        {
+    //            // 处理图像显示错误
+    //        }
+    //        finally
+    //        {
+    //            bitmap.Dispose();
+    //        }
+    //    });
+    //}
 
-    private async void StartFocusScoreUpdate()
-    {
-        while (true)
-        {
-            if (!IsAutoFocusRunning)
-            {
-                try
-                {
-                    _cameraService.Capture(out var mat);
-                    using (var image = mat)
-                    {
-                        FocusScore = _imageProcessing.CalculateFocusScore(image, CropSize);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogException(ex, "Error updating focus score");
-                }
-            }
-            await Task.Delay(1000); // 每秒更新一次
-        }
-    }
+    //private async void StartFocusScoreUpdate()
+    //{
+    //    while (true)
+    //    {
+    //        if (!IsAutoFocusRunning)
+    //        {
+    //            try
+    //            {
+    //                _cameraService.Capture(out var mat);
+    //                using (var image = mat)
+    //                {
+    //                    FocusScore = _imageProcessing.CalculateFocusScore(image, CropSize);
+    //                }
+    //            }
+    //            catch (Exception ex)
+    //            {
+    //                _logger.LogException(ex, "Error updating focus score");
+    //            }
+    //        }
+    //        await Task.Delay(1000); // 每秒更新一次
+    //    }
+    //}
 
 
-    [RelayCommand]
-    private void CancelAutoFocus()
-    {
-        _autoFocusCts?.Cancel();
-    }
+    //[RelayCommand]
+    //private void CancelAutoFocus()
+    //{
+    //    _autoFocusCts?.Cancel();
+    //}
 
 
     #endregion
 
 
-    public void Dispose()
-    {
+    //public void Dispose()
+    //{
 
-        _videoProcessing.FrameProcessed -= OnFrameProcessed;
-        _videoProcessing.FocusScoreUpdated -= OnFocusScoreUpdated;
-        _videoProcessing.Dispose();
-    }
+    //    _videoProcessing.FrameProcessed -= OnFrameProcessed;
+    //    _videoProcessing.FocusScoreUpdated -= OnFocusScoreUpdated;
+    //    _videoProcessing.Dispose();
+    //}
 
     ~ShellViewModel()
     {

@@ -23,6 +23,8 @@ namespace DenseLight.Devices
         private bool _isGrabbing = false;
         private bool _disposed = false;
 
+        public bool _isStartCapture = false;
+
         public event EventHandler<Bitmap> FrameCaptured;
 
         IFrameOut frameOut = null;
@@ -248,6 +250,9 @@ namespace DenseLight.Devices
         {
             if (_parent.device == null) { mat = null; return false; }
             mat = null;
+
+            _parent._isStartCapture = true;
+
             int ret = _parent.device.Parameters.SetEnumValue("TriggerMode", 0); // 设置触发模式为“On”
             if (ret != MvError.MV_OK)
             {
@@ -316,6 +321,8 @@ namespace DenseLight.Devices
                 mat = null;
                 return false;
             }
+            mat = localMat;
+            _parent._isStartCapture = false;
 
             //_parent.device.StreamGrabber.GetImageBuffer(1000, out frameOut);
 
@@ -326,8 +333,7 @@ namespace DenseLight.Devices
             //    (int)frameOut.Image.Width,
             //    MatType.CV_8UC3,
             //    frameOut.Image.PixelData
-            //);
-            mat = localMat;
+            //);           
 
             return true;
         }
@@ -440,7 +446,6 @@ namespace DenseLight.Devices
             {
                 // 打开设备
                 device = DeviceFactory.CreateDevice(deviceInfo);
-                _parent.device = device;
             }
             catch (Exception ex)
             {
@@ -448,6 +453,7 @@ namespace DenseLight.Devices
                 MessageBox.Show($"Failed to create device: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 return false;
             }
+            _parent.device = device;
 
             int ret = _parent.device.Open();
 
@@ -592,6 +598,8 @@ namespace DenseLight.Devices
         public bool StartCapture(out Mat mat)
         {
             mat = null;
+            _grabThreadExit = false;
+            _parent._isStartCapture = true;
             if (_parent.device == null)
             {
                 //_logger.LogError("Device is not initialized.");
@@ -640,21 +648,23 @@ namespace DenseLight.Devices
                             frame.Image.Width, frame.Image.Height, frame.Image.ImageSize, frame.FrameNum);
                         //Do some thing
                         localMat = ConvertToMat(frame.Image); // 将图像转换为Mat格式
+
                     }
 
                     //ch: 释放图像缓存  | en: Release the image buffer
                     streamGrabber.FreeImageBuffer(frame);
                 }
 
-            })
-            {
-                Name = "HikCameraReceiveThread",
-                Priority = ThreadPriority.AboveNormal,
-                IsBackground = true
-            };
+            });
+            //{
+            //    Name = "HikCameraReceiveThread",
+            //    Priority = ThreadPriority.AboveNormal,
+            //    IsBackground = true
+            //};
+
             receivedThread.Start();
 
-            mat = localMat; // 线程结束后赋值给 out 参数
+            mat = localMat; // 线程结束后赋值给 out 参数        
 
             //_logger.LogInformation("Started grabbing successfully.");
             return true;
@@ -684,7 +694,7 @@ namespace DenseLight.Devices
             }
 
             isGrabbing = false;
-
+            _parent._isStartCapture = false;
             // 清空图像队列
             while (_frameQueue.TryDequeue(out var frame))
             {
