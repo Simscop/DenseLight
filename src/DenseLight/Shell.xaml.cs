@@ -25,7 +25,7 @@ namespace DenseLight
             _hikCameraService = new HikCameraService();
             _hikCameraService.ImageReady += OnImageReady;
 
-            Closed += Shell_Closed;
+            //Closed += Shell_Closed;
         }
 
         private void Shell_Closed(object? sender, EventArgs e)

@@ -273,7 +273,31 @@ namespace DenseLight.Devices
 
             //_processThreadExit = true; // 通知异步处理线程退出
             //_asyncProcessThread.Join(); // 等待异步处理线程结束
-            Thread GrabThread = new Thread(FrameGrabThread);
+            var streamGrabber = _parent.device.StreamGrabber;
+
+            Thread GrabThread = new Thread(() => 
+            {
+                while (!_grabThreadExit)
+                {
+                    IFrameOut frame;
+
+                    //ch：获取一帧图像 | en: Get one frame
+                    int ret = streamGrabber.GetImageBuffer(1000, out frame);
+                    if (ret != MvError.MV_OK)
+                    {
+                        Console.WriteLine("Get Image failed:{0:x8}", ret);
+                        continue;
+                    }
+
+                    Console.WriteLine("Get one frame: Width[{0}] , Height[{1}] , ImageSize[{2}], FrameNum[{3}]", frame.Image.Width, frame.Image.Height, frame.Image.ImageSize, frame.FrameNum);
+                    //Do some thing
+
+
+                    //ch: 释放图像缓存  | en: Release the image buffer
+                    streamGrabber.FreeImageBuffer(frame);
+                }
+
+            });
             GrabThread.Start(_parent.device.StreamGrabber);
 
             _grabThreadExit = true; // 通知线程退出
@@ -566,11 +590,17 @@ namespace DenseLight.Devices
                 //_logger.LogError("Device is not initialized.");
                 return false;
             }
+            int ret = _parent.device.Parameters.SetEnumValue("TriggerMode", 0); // 设置触发模式为“On”
+            if (ret != MvError.MV_OK)
+            {
+                ShowErrorMsg("Set TriggerMode failed", ret);               
+                return false;
+            }
 
             _parent.device.StreamGrabber.SetImageNodeNum(9);
 
             // 开启抓图
-            int ret = _parent.device.StreamGrabber.StartGrabbing(StreamGrabStrategy.OneByOne);
+            ret = _parent.device.StreamGrabber.StartGrabbing(StreamGrabStrategy.OneByOne);
             if (ret != MvError.MV_OK)
             {
                 isGrabbing = false;
@@ -580,13 +610,39 @@ namespace DenseLight.Devices
             }
             isGrabbing = true;
 
-            receivedThread = new Thread(FrameGrabThread) // ReceiveThreadProcess
+            var streamGrabber = _parent.device.StreamGrabber;
+
+            receivedThread = new Thread(()=>
+            {
+                while (!_grabThreadExit)
+                {
+                    IFrameOut frame;
+
+                    //ch：获取一帧图像 | en: Get one frame
+                    int ret = streamGrabber.GetImageBuffer(1000, out frame);
+                    if (ret != MvError.MV_OK)
+                    {
+                        Console.WriteLine("Get Image failed:{0:x8}", ret);
+                        continue;
+                    }
+
+                    Console.WriteLine("Get one frame: Width[{0}] , Height[{1}] , ImageSize[{2}], FrameNum[{3}]", frame.Image.Width, frame.Image.Height, frame.Image.ImageSize, frame.FrameNum);
+                    //Do some thing
+
+
+                    //ch: 释放图像缓存  | en: Release the image buffer
+                    streamGrabber.FreeImageBuffer(frame);
+                }
+
+            }) // ReceiveThreadProcess
             {
                 Name = "HikCameraReceiveThread",
                 Priority = ThreadPriority.AboveNormal,
                 IsBackground = true
             };
             receivedThread.Start();
+
+
             //_logger.LogInformation("Started grabbing successfully.");
             return true;
         }
@@ -727,6 +783,8 @@ namespace DenseLight.Devices
         public void StopThreadProcess()
         {
             _isCaptureRunning = false;
+            _grabThreadExit = true; // 通知线程退出
+
             if (receivedThread != null && receivedThread.IsAlive)
             {
                 // 等待线程结束
@@ -815,6 +873,7 @@ namespace DenseLight.Devices
 
         public void Dispose()
         {
+            if (_parent.device == null) return;
             _parent.device.Dispose();
             _parent.device = null;
 
