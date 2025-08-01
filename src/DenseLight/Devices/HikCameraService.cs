@@ -9,6 +9,7 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
 using System.Windows;
+using System.Windows.Media;
 using System.Windows.Media.Imaging;
 
 namespace DenseLight.Devices
@@ -35,7 +36,7 @@ namespace DenseLight.Devices
 
         public HikCameraService()
         {
-            hikCam = new HikCamImplement(this);           
+            hikCam = new HikCamImplement(this);
         }
 
         //public HikCameraService(ILoggerService logger, HikCamImplement hikImp)
@@ -145,9 +146,14 @@ namespace DenseLight.Devices
 
         private readonly ConcurrentQueue<Bitmap> _frameQueue = new ConcurrentQueue<Bitmap>();
 
+        private Queue<IFrameOut> _iframeQueue = new Queue<IFrameOut>();
+
         private readonly AutoResetEvent _frameEvent = new AutoResetEvent(false);
 
         public event EventHandler<Bitmap> FrameCaptured;
+
+        private const uint _maxQueueSize = 10;
+
 
         IGigEDevice gigEDevice;
         IUSBDevice usbDevice;
@@ -169,7 +175,14 @@ namespace DenseLight.Devices
 
         private readonly ILoggerService? _logger;
 
-        
+        private Thread _asyncProcessThread = null;
+
+        private Semaphore _frameGrabSem = null;
+
+
+
+        private volatile bool _processThreadExit = false;
+
 
         private volatile bool _isCaptureRunning = false;
 
@@ -208,9 +221,44 @@ namespace DenseLight.Devices
         }
 
         public bool Capture(out Mat mat)
-        {            
+        {
             if (_parent.device == null) { mat = null; return false; }
-            _parent.device.StreamGrabber.GetImageBuffer(1000, out frameOut);
+            int ret = _parent.device.Parameters.SetEnumValueByString("TriggerMode", "Off");
+            if (ret != MvError.MV_OK)
+            {
+                ShowErrorMsg("Set TriggerMode failed", ret);
+                mat = null;
+                return false;
+            }
+
+            _parent.device.StreamGrabber.SetImageNodeNum(5); // 设置图像节点数量
+
+            _processThreadExit = false; // 确保线程可以运行
+            _asyncProcessThread = new Thread(AsyncProcessThread);
+            _asyncProcessThread.Start(); // 启动异步处理线程
+
+            _parent.device.StreamGrabber.FrameGrabedEvent += FrameGrabedEventHandler; // 注册帧抓取事件处理程序
+
+            ret = _parent.device.StreamGrabber.StartGrabbing(StreamGrabStrategy.OneByOne);
+            if (ret != MvError.MV_OK)
+            {
+                ShowErrorMsg("Start grabbing failed", ret);
+                mat = null;
+                return false;
+            }
+
+            _processThreadExit = true; // 通知异步处理线程退出
+            _asyncProcessThread.Join(); // 等待异步处理线程结束
+
+            ret = device.StreamGrabber.StopGrabbing();
+            if (ret != MvError.MV_OK)
+            {
+                ShowErrorMsg("Stop grabbing failed", ret);
+                mat = null;
+                return false;
+            }
+
+            //_parent.device.StreamGrabber.GetImageBuffer(1000, out frameOut);
 
             // 替换原有的 mat = new Mat((int)frameOut.Image.Height, (int)frameOut.Image.Width, MatType.CV_8UC3, frameOut.Image.PixelData);
             // 使用 Mat.FromPixelData 静态方法来创建 Mat 实例
@@ -222,6 +270,99 @@ namespace DenseLight.Devices
             );
 
             return true;
+        }
+
+
+        void AsyncProcessThread()
+        {
+            try
+            {
+                while (!_processThreadExit)
+                {
+                    if (_frameGrabSem.WaitOne(100))
+                    {
+                        IFrameOut frame = _iframeQueue.Dequeue();
+                        Console.WriteLine("AsyncProcessThread: process one frame, Width[{0}] , Height[{1}] , FrameNum[{2}]", frame.Image.Width, frame.Image.Height, frame.FrameNum);
+
+                        //Processing the image data, such as algorithms
+
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("AsyncProcessThread exception: " + e.Message);
+            }
+
+        }
+
+        void FrameGrabedEventHandler(object sender, FrameGrabbedEventArgs e)
+        {
+            Console.WriteLine("FrameGrabedEventHandler: Get one frame, Width[{0}] , Height[{1}] , FrameNum[{2}]", e.FrameOut.Image.Width, e.FrameOut.Image.Height, e.FrameOut.FrameNum);
+
+            try
+            {
+
+                lock (this)
+                {
+                    if (_iframeQueue.Count <= _maxQueueSize)
+                    {
+                        // ch: 克隆图像数据（深拷贝） | en :Clone frame data using deep copy
+                        IFrameOut frameCopy = (IFrameOut)e.FrameOut.Clone();
+
+                        // 转换为BitmapSource
+                        BitmapSource bitmapSource = ConvertToBitmapSource(frameCopy);
+
+                        //ch: 添加到队列并通知处理线程 | en: Add the frame to the queue and notify the processing thread
+                        _iframeQueue.Enqueue(frameCopy);
+                        _frameGrabSem.Release();
+
+                        _parent.OnImageReady(bitmapSource); // 通知父类图像已准备好
+                    }
+
+                }
+            }
+            catch (Exception exception)
+            {
+                Console.WriteLine("FrameGrabedEventHandler exception: " + exception.Message);
+            }
+
+        }
+
+
+        public static BitmapSource ConvertToBitmapSource(IFrameOut frame)
+        {
+            if (frame == null || frame.Image == null || frame.Image.PixelData == null)
+                return null;
+
+            int width = (int)frame.Image.Width;
+            int height = (int)frame.Image.Height;
+            int stride = width * (frame.Image.PixelType == MvGvspPixelType.PixelType_Gvsp_HB_Mono8 ? 1 : 3); // 根据像素类型计算步长
+
+            BitmapSource bitmapSource = null;
+
+            // 根据像素类型选择合适的格式
+            if (frame.Image.PixelType == MvGvspPixelType.PixelType_Gvsp_HB_Mono8)
+            {
+                bitmapSource = BitmapSource.Create(
+                    width, height, 96, 96, // DPI
+                    PixelFormats.Gray8, // 灰度图像格式
+                    null, // 调色板
+                    frame.Image.PixelData, // 图像数据
+                    stride);
+            }
+            else if (frame.Image.PixelType == MvGvspPixelType.PixelType_Gvsp_HB_Mono8)
+            {
+                bitmapSource = BitmapSource.Create(
+                    width, height, 96, 96,
+                    PixelFormats.Rgb24, // RGB格式
+                    null,
+                    frame.Image.PixelData,
+                    stride);
+            }
+            // 其他格式（如BGR、YUV等）可能需要额外的转换逻辑
+
+            return bitmapSource;
         }
 
         public bool OpenCam()
@@ -389,7 +530,7 @@ namespace DenseLight.Devices
         /// 连续采集
         /// </summary>
         public bool StartCapture()
-        {            
+        {
             if (_parent.device == null)
             {
                 //_logger.LogError("Device is not initialized.");
@@ -421,7 +562,7 @@ namespace DenseLight.Devices
         }
 
         public bool StopCapture()
-        {            
+        {
             if (!isGrabbing)
             {
                 //_logger.LogWarning("Camera is not currently grabbing.");
@@ -460,7 +601,7 @@ namespace DenseLight.Devices
         /// 保存图像到本地文件
         /// </summary>
         public void SaveCapture(string path)
-        {            
+        {
             int ret = _parent.device.StreamGrabber.GetImageBuffer(1000, out frameOut); // 获取一帧图像
             if (ret == MvError.MV_OK && frameOut != null)
             {
@@ -482,7 +623,7 @@ namespace DenseLight.Devices
 
 
         public void ReceiveThreadProcess()
-        {            
+        {
             _isCaptureRunning = true;
             //_logger.LogInformation("Receive thread started.");
             // 轮询取图
@@ -569,7 +710,7 @@ namespace DenseLight.Devices
         }
 
         public double GetExposure()
-        {            
+        {
             // 获取相机的参数
             int ret = _parent.device.Parameters.GetFloatValue("ExposureTime", out floatValue);
             if (ret == MvError.MV_OK)
@@ -596,7 +737,7 @@ namespace DenseLight.Devices
         }
 
         public double GetFrameRate()
-        {            
+        {
             int ret = _parent.device.Parameters.GetFloatValue("ResultingFrameRate", out floatValue);
             if (ret == MvError.MV_OK)
             {
@@ -612,7 +753,7 @@ namespace DenseLight.Devices
         }
 
         public double GetGain()
-        {            
+        {
             int ret = _parent.device.Parameters.GetFloatValue("Gain", out gainValue);
             if (ret == MvError.MV_OK)
             {
@@ -627,7 +768,7 @@ namespace DenseLight.Devices
         }
 
         public string GetPixelFormat()
-        {            
+        {
             int ret = _parent.device.Parameters.GetEnumValue("PixelFormat", out enumValue);
             if (ret == MvError.MV_OK)
             {
