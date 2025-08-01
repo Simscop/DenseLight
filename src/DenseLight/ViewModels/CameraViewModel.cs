@@ -8,6 +8,7 @@ using System.IO;
 using System.Reflection.Metadata;
 using OpenCvSharp;
 using Microsoft.WindowsAPICodePack.Dialogs;
+using System.Windows;
 
 namespace DenseLight.ViewModels
 {
@@ -31,7 +32,7 @@ namespace DenseLight.ViewModels
         private string _pixelFormat = "";
 
         [ObservableProperty]
-        private string _root = "E:/DenseLight/Images"; // 默认保存路径
+        private string _root = "D:/DenseLight/Images"; // 默认保存路径
 
         [ObservableProperty]
         private bool _isStartCapture = false; // 是否开始捕获
@@ -84,6 +85,10 @@ namespace DenseLight.ViewModels
                 // 处理关闭摄像头时的异常
                 Console.WriteLine($"Error closing camera: {ex.Message}");
             }
+            finally
+            {
+                _camera.Dispose();
+            }
         }
 
         [RelayCommand]
@@ -99,6 +104,8 @@ namespace DenseLight.ViewModels
             //    return;
             //}
             if (!_isInit) { return; }
+
+            // TODO 这里应该是保存当前显示窗口的图片，相当于截图
 
             _camera.Capture(out var mat);
             CurrentFrame = mat?.ToBitmapSource() is { } bitmap ? BitmapFrame.Create(bitmap) : null;
@@ -195,6 +202,7 @@ namespace DenseLight.ViewModels
         void StartCapture()
         {
             IsStartCapture = _camera.StartCapture();
+            if (!IsStartCapture) { MessageBox.Show("camera is not open"); }
         }
 
         [RelayCommand]

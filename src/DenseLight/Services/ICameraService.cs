@@ -112,5 +112,7 @@ namespace DenseLight.Services
         public bool SetAcquisitionFrameRate(float value);
 
         public event EventHandler<Bitmap> FrameCaptured;
+
+        public void Dispose();
     }
 }

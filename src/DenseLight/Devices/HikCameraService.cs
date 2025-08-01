@@ -98,11 +98,7 @@ namespace DenseLight.Devices
 
         public bool StopCapture() => hikCam.StopCapture();
 
-        public void Dispose()
-        {
-            hikCam.Dispose();
-            SDKSystem.Finalize();
-        }
+        public void Dispose() => hikCam.Dispose();
 
         public void Configure() => hikCam.ConfigureCam();
 
@@ -116,7 +112,7 @@ namespace DenseLight.Devices
 
         ~HikCameraService()
         {
-            Dispose();
+            SDKSystem.Finalize();
         }
 
         // 内部事件触发方法（可添加额外处理）
@@ -189,6 +185,7 @@ namespace DenseLight.Devices
         public HikCamImplement(HikCameraService parent)
         {
             _parent = parent;
+            _frameGrabSem = new Semaphore(0, Int32.MaxValue);
         }
 
         /// <summary>
@@ -262,12 +259,13 @@ namespace DenseLight.Devices
 
             // 替换原有的 mat = new Mat((int)frameOut.Image.Height, (int)frameOut.Image.Width, MatType.CV_8UC3, frameOut.Image.PixelData);
             // 使用 Mat.FromPixelData 静态方法来创建 Mat 实例
-            mat = Mat.FromPixelData(
-                (int)frameOut.Image.Height,
-                (int)frameOut.Image.Width,
-                MatType.CV_8UC3,
-                frameOut.Image.PixelData
-            );
+            //mat = Mat.FromPixelData(
+            //    (int)frameOut.Image.Height,
+            //    (int)frameOut.Image.Width,
+            //    MatType.CV_8UC3,
+            //    frameOut.Image.PixelData
+            //);
+            mat = null;
 
             return true;
         }
@@ -456,7 +454,7 @@ namespace DenseLight.Devices
             {
                 //_logger.LogInformation("Device closed successfully.");
             }
-            _parent.device = null; // 清空设备引用
+            //_parent.device = null; // 清空设备引用
         }
 
         public void ConfigureCam()
@@ -556,7 +554,7 @@ namespace DenseLight.Devices
                 Priority = ThreadPriority.AboveNormal,
                 IsBackground = true
             };
-            receivedThread.Start(_parent.device.StreamGrabber);
+            receivedThread.Start();
             //_logger.LogInformation("Started grabbing successfully.");
             return true;
         }
@@ -786,7 +784,8 @@ namespace DenseLight.Devices
         public void Dispose()
         {
             _parent.device.Dispose();
-            device = null;
+            _parent.device = null;
+            
         }
 
 

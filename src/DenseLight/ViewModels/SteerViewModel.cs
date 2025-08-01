@@ -106,6 +106,16 @@ namespace DenseLight.ViewModels
 
         }
 
+        partial void OnZChanged(double value)
+        {
+            const double max = 23000000; // nm
+            const double min = 0;
+            if (value < min || value > max)
+            {
+                Z = Math.Clamp(value, min, max);
+            }
+        }
+
         public SteerViewModel(PositionUpdateService positionUpdateService, IMotor motor)
         {
             _positionUpdateService = positionUpdateService ?? throw new ArgumentNullException(nameof(positionUpdateService));
