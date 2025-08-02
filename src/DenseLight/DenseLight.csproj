@@ -32,4 +32,8 @@
 	  </Reference>
 	</ItemGroup>
 
+	<ItemGroup>
+	  <EditorConfigFiles Remove="E:\Work\Simscop\projects\DenseLight\DenseLight\src\DenseLight\.editorconfig" />
+	</ItemGroup>
+
 </Project>
