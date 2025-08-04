@@ -135,7 +135,7 @@ namespace DenseLight.Devices
                 connectionState = "Failed to connect to Zaber Motor Service. Please check the connection.";
                 return false;
             }
-           
+
         }
 
         public (double X, double Y, double Z) ReadPosition()
@@ -193,8 +193,13 @@ namespace DenseLight.Devices
             if (_zAxis.IsBusy())
             {
                 _zAxis.Stop();
+                return true;
             }
-            return true;
+            else
+            {
+                return false;
+            }
+
         }
 
         public bool MoveRelative(double x, double y, double z)

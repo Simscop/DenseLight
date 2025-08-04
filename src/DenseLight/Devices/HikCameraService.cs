@@ -699,13 +699,9 @@ namespace DenseLight.Devices
                         using (var mat = ConvertToMat(frame.Image))
                         {
                             FrameReceived?.Invoke(mat.Clone());
-                        }                       
-                        ;                        
+                        }
+                        ;
 
-                        //using (var mat = ConvertToMat(frame.Image))
-                        //{
-                        //    FrameReceived?.Invoke(mat.Clone());
-                        //}
                         //ch: 释放图像缓存  | en: Release the image buffer
                         streamGrabber.FreeImageBuffer(frame);
                     }

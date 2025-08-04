@@ -21,6 +21,7 @@ namespace DenseLight.ViewModels
     public partial class SteerViewModel : ObservableObject
     {
         private readonly PositionUpdateService _positionUpdateService;
+        private readonly AutoFocusService _autoFocusService;
         private readonly DispatcherTimer _timer;
 
         private readonly IMotor _motor;
@@ -37,11 +38,48 @@ namespace DenseLight.ViewModels
 
         [ObservableProperty] private double _zStep = 1;
 
+        [ObservableProperty] private double _zTop = 0;
+
+        [ObservableProperty] private double _zBottom = 100000;
+
         [ObservableProperty] public bool _isConnected = false;
 
-        [ObservableProperty] private string _positionStatus = "位置更新中...";
-
         [ObservableProperty] private string _connectionStatus = "Disconnected";
+
+        [ObservableProperty] private bool _isBusy = false;
+
+        private double cropSize = 0.8;
+
+        partial void OnZChanged(double value)
+        {
+            const double max = 23000000; // nm
+            const double min = 0;
+            if (value < min || value > max)
+            {
+                Z = Math.Clamp(value, min, max);
+            }
+        }
+
+        partial void OnZBottomChanged(double value)
+        {
+            const double max = 23000000; // nm
+            const double min = 0;
+            if (value < min || value > max)
+            {
+                ZBottom = Math.Clamp(value, min, max);
+            }
+        }
+
+        partial void OnZTopChanged(double value)
+        {
+            const double max = 23000000; // nm
+            const double min = 0;
+            if (value < min || value > max)
+            {
+                ZTop = Math.Clamp(value, min, max);
+            }
+        }
+
 
         [RelayCommand]
         void Connect()
@@ -102,24 +140,27 @@ namespace DenseLight.ViewModels
         }
 
         [RelayCommand]
-        private async Task Focus()
+        private async Task Focus(CancellationToken token)
         {
+            if (IsBusy) return;
 
-        }
+            IsBusy = true;
 
-        partial void OnZChanged(double value)
-        {
-            const double max = 23000000; // nm
-            const double min = 0;
-            if (value < min || value > max)
+            try
             {
-                Z = Math.Clamp(value, min, max);
+                double bestZ = await _autoFocusService.PerformAutoFocusAsync(ZTop, ZBottom, ZStep, cropSize, token);
+
+                Z = bestZ;
             }
+            catch (Exception e) { }
+            finally { IsBusy = false; }
+
         }
 
-        public SteerViewModel(PositionUpdateService positionUpdateService, IMotor motor)
+        public SteerViewModel(PositionUpdateService positionUpdateService, IMotor motor, AutoFocusService autoFocusService)
         {
             _positionUpdateService = positionUpdateService ?? throw new ArgumentNullException(nameof(positionUpdateService));
+            _autoFocusService = autoFocusService;
             _motor = motor ?? throw new ArgumentNullException(nameof(motor));
 
             // 订阅位置更新事件

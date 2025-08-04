@@ -14,18 +14,18 @@ namespace DenseLight.BusinessLogic
         private readonly ILoggerService _logger;
         private readonly IImageProcessingService _imageProcessingService;
 
-        public AutoFocusService(IMotor motor, 
-            ICameraService camera, 
-            ILoggerService logger, 
+        public AutoFocusService(IMotor motor,
+            ICameraService camera,
+            ILoggerService logger,
             IImageProcessingService imageProcessing)
         {
             _motor = motor;
-            _camera = camera;  
+            _camera = camera;
             _logger = logger;
             _imageProcessingService = imageProcessing;
         }
 
-        public async Task<double> PerformAutoFocusAsync(double startZ, 
+        public async Task<double> PerformAutoFocusAsync(double startZ,
             double endZ, double stepSize, double cropSize = 0.8, CancellationToken cancellationToken = default)
         {
             _logger.LogInformation($"Starting auto-focus from {startZ} to {endZ} with step {stepSize}");
@@ -33,7 +33,7 @@ namespace DenseLight.BusinessLogic
             (double X, double Y, double Z) = _motor.ReadPosition();
             double currentZ = Z;
             double bestZ = currentZ;
-           
+
             int steps = (int)Math.Ceiling((endZ - startZ) / stepSize);
 
             // 方向判断
@@ -70,7 +70,7 @@ namespace DenseLight.BusinessLogic
 
                 // Capture an image
                 var isCapture = _camera.Capture(out var image);
-                
+
                 if (isCapture)
                 {
                     using (var img = image)
@@ -93,8 +93,8 @@ namespace DenseLight.BusinessLogic
                     }
 
 
-                }             
-                
+                }
+
 
 
             }

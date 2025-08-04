@@ -61,7 +61,7 @@ namespace DenseLight.ViewModels
         [ObservableProperty]
         private volatile bool _isClosed = false;
 
-        [ObservableProperty]       
+        [ObservableProperty]
         private volatile bool _CanAcquisition = false;
 
         [ObservableProperty]
@@ -71,16 +71,10 @@ namespace DenseLight.ViewModels
         {
             _messenger = messenger;
             _camera = camera ?? throw new ArgumentNullException(nameof(camera));
-            //_hikCamera = new HikCameraService();
 
             _camera.FrameReceived += OnFrameReceived;
 
-            //_frameRefreshService = new FrameRefreshService(camera);
-
-            //_frameRefreshService = frameRefreshService ?? throw new ArgumentNullException(nameof(frameRefreshService));
-            IsInit = ConfigureCamera();           
-
-            //_frameRefreshService.PropertyChanged += OnFrameRefreshService_PropertyChanged;
+            IsInit = ConfigureCamera();
         }
 
 
@@ -88,12 +82,12 @@ namespace DenseLight.ViewModels
         {
             try
             {
-                var cloneFrame = frame.Clone();                      
+                var cloneFrame = frame.Clone();
 
                 using (frame) // 确保原始frame在方法结束时dispose（即使异常）
                 {
                     Task.Run(() =>
-                    {                      
+                    {
                         WeakReferenceMessenger.Default.Send<DisplayFrame, string>(new DisplayFrame()
                         {
                             Image = cloneFrame,
@@ -202,7 +196,7 @@ namespace DenseLight.ViewModels
         {
             var isCamInit = _camera.Init();
             //_camera.Open(); // create device
-            if (isCamInit) { IsCamOpen = true; }    
+            if (isCamInit) { IsCamOpen = true; }
 
             return isCamInit;
         }
@@ -228,7 +222,7 @@ namespace DenseLight.ViewModels
         void OpenCamera()
         {
             if (IsInit)
-            {               
+            {
                 var isOpen = _camera.Open(); // create device
                 if (!isOpen) { MessageBox.Show("相机打开失败，请检查相机是否连接"); return; }
                 ExposureTime = _camera.GetExposure();
@@ -249,7 +243,7 @@ namespace DenseLight.ViewModels
             {
                 _camera.Close();
                 IsCamOpen = true;
-                CanAcquisition = false;                
+                CanAcquisition = false;
             }
             catch (Exception ex)
             {
@@ -386,7 +380,7 @@ namespace DenseLight.ViewModels
             }
             else if (IsAcquisition)
             {
-                IsAcquisition = !_camera.StopCapture();              
+                IsAcquisition = !_camera.StopCapture();
             }
             else { }
         }
@@ -394,10 +388,10 @@ namespace DenseLight.ViewModels
         [RelayCommand]
         void StopCapture()
         {
-            _camera.StopCapture(); 
+            _camera.StopCapture();
             IsAcquisition = false;
             CanAcquisition = true;
-            IsClosed = true;           
+            IsClosed = true;
         }
     }
 }
