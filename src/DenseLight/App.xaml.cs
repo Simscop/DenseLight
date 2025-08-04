@@ -65,8 +65,6 @@ namespace DenseLight
         {
             base.OnStartup(e);
 
-
-
             // 用这个会开两次
             //var shell = new Shell
             //{

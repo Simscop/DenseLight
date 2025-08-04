@@ -53,16 +53,19 @@ namespace DenseLight.ViewModels
         private string _root = "D:/DenseLight/Images"; // 默认保存路径
 
         [ObservableProperty]
-        private volatile bool _isStartCapture = false; // 是否开始捕获
-
-        [ObservableProperty]
         private volatile bool _isInit = false;
 
         [ObservableProperty]
         private volatile bool _isCamOpen = false;
 
         [ObservableProperty]
-        private volatile bool _isStartAcquistion = false;
+        private volatile bool _isClosed = false;
+
+        [ObservableProperty]       
+        private volatile bool _CanAcquisition = false;
+
+        [ObservableProperty]
+        private volatile bool _IsAcquisition = false;
 
         public CameraViewModel(ICameraService camera, IMessenger messenger)
         {
@@ -75,7 +78,7 @@ namespace DenseLight.ViewModels
             //_frameRefreshService = new FrameRefreshService(camera);
 
             //_frameRefreshService = frameRefreshService ?? throw new ArgumentNullException(nameof(frameRefreshService));
-            IsInit = ConfigureCamera();
+            IsInit = ConfigureCamera();           
 
             //_frameRefreshService.PropertyChanged += OnFrameRefreshService_PropertyChanged;
         }
@@ -85,12 +88,12 @@ namespace DenseLight.ViewModels
         {
             try
             {
+                var cloneFrame = frame.Clone();                      
+
                 using (frame) // 确保原始frame在方法结束时dispose（即使异常）
                 {
                     Task.Run(() =>
-                    {
-                        var cloneFrame = frame.Clone();
-
+                    {                      
                         WeakReferenceMessenger.Default.Send<DisplayFrame, string>(new DisplayFrame()
                         {
                             Image = cloneFrame,
@@ -107,51 +110,51 @@ namespace DenseLight.ViewModels
 
         private WriteableBitmap _writeableBitmap;
 
-        private unsafe void UpdateImage(Mat frame)
-        {
-            if (frame == null || frame.IsDisposed || frame.Empty()) return;
+        //private unsafe void UpdateImage(Mat frame)
+        //{
+        //    if (frame == null || frame.IsDisposed || frame.Empty()) return;
 
-            try
-            {
-                int width = frame.Width;
-                int height = frame.Height;
-                int channels = frame.Channels();
+        //    try
+        //    {
+        //        int width = frame.Width;
+        //        int height = frame.Height;
+        //        int channels = frame.Channels();
 
-                System.Windows.Media.PixelFormat format = PixelFormats.Bgr24;
-                if (channels == 1) format = PixelFormats.Gray8;
-                else if (channels == 4) format = PixelFormats.Bgra32;
+        //        System.Windows.Media.PixelFormat format = PixelFormats.Bgr24;
+        //        if (channels == 1) format = PixelFormats.Gray8;
+        //        else if (channels == 4) format = PixelFormats.Bgra32;
 
-                if (_writeableBitmap == null || _writeableBitmap.PixelWidth != width || _writeableBitmap.PixelHeight != height || _writeableBitmap.Format != format)
-                {
-                    _writeableBitmap = new WriteableBitmap(width, height, 96, 96, format, null);
-                }
+        //        if (_writeableBitmap == null || _writeableBitmap.PixelWidth != width || _writeableBitmap.PixelHeight != height || _writeableBitmap.Format != format)
+        //        {
+        //            _writeableBitmap = new WriteableBitmap(width, height, 96, 96, format, null);
+        //        }
 
-                _writeableBitmap.Lock();
-                try
-                {
-                    int bufferSize = height * (int)frame.Step();
+        //        _writeableBitmap.Lock();
+        //        try
+        //        {
+        //            int bufferSize = height * (int)frame.Step();
 
-                    Buffer.MemoryCopy((void*)frame.Data,
-                        (void*)_writeableBitmap.BackBuffer, bufferSize, bufferSize);
+        //            Buffer.MemoryCopy((void*)frame.Data,
+        //                (void*)_writeableBitmap.BackBuffer, bufferSize, bufferSize);
 
-                    _writeableBitmap.AddDirtyRect(new Int32Rect(0, 0, width, height));
-                }
-                finally
-                {
-                    _writeableBitmap.Unlock();
-                }
+        //            _writeableBitmap.AddDirtyRect(new Int32Rect(0, 0, width, height));
+        //        }
+        //        finally
+        //        {
+        //            _writeableBitmap.Unlock();
+        //        }
 
-                CurrentFrame = BitmapFrame.Create(_writeableBitmap);
+        //        CurrentFrame = BitmapFrame.Create(_writeableBitmap);
 
 
-            }
-            catch { }
-            finally
-            {
-                frame.Dispose();
-            }
+        //    }
+        //    catch { }
+        //    finally
+        //    {
+        //        frame.Dispose();
+        //    }
 
-        }
+        //}
 
         private BitmapFrame ConvertMatToBitmapFrame(Mat mat)
         {
@@ -198,22 +201,23 @@ namespace DenseLight.ViewModels
         private bool ConfigureCamera()
         {
             var isCamInit = _camera.Init();
-            //_camera.Open(); // create device           
+            //_camera.Open(); // create device
+            if (isCamInit) { IsCamOpen = true; }    
 
             return isCamInit;
         }
 
-        private void OnFrameRefreshService_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
-        {
-            if (e.PropertyName == nameof(FrameRefreshService.frame))
-            {
-                CurrentFrame = _frameRefreshService.frame?.ToBitmapSource() is { } bitmap ? BitmapFrame.Create(bitmap) : null;
-            }
-        }
+        //private void OnFrameRefreshService_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+        //{
+        //    if (e.PropertyName == nameof(FrameRefreshService.frame))
+        //    {
+        //        CurrentFrame = _frameRefreshService.frame?.ToBitmapSource() is { } bitmap ? BitmapFrame.Create(bitmap) : null;
+        //    }
+        //}
 
         public void Cleanup()
         {
-            _frameRefreshService.PropertyChanged -= OnFrameRefreshService_PropertyChanged;
+            //_frameRefreshService.PropertyChanged -= OnFrameRefreshService_PropertyChanged;
             _frameRefreshService.Dispose();
             _hikCamera.FrameReceived -= OnFrameReceived;
             _writeableBitmap = null;
@@ -224,14 +228,16 @@ namespace DenseLight.ViewModels
         void OpenCamera()
         {
             if (IsInit)
-            {
+            {               
                 var isOpen = _camera.Open(); // create device
                 if (!isOpen) { MessageBox.Show("相机打开失败，请检查相机是否连接"); return; }
                 ExposureTime = _camera.GetExposure();
                 Gain = _camera.GetGain();
                 FrameRate = _camera.GetFrameRate();
                 PixelFormat = _camera.GetPixelFormat();
-                IsCamOpen = true;
+                IsClosed = true;
+                CanAcquisition = true;
+                IsCamOpen = false;
             }
             else { MessageBox.Show("相机未正确初始化"); }
         }
@@ -242,6 +248,8 @@ namespace DenseLight.ViewModels
             try
             {
                 _camera.Close();
+                IsCamOpen = true;
+                CanAcquisition = false;                
             }
             catch (Exception ex)
             {
@@ -271,13 +279,13 @@ namespace DenseLight.ViewModels
             // TODO 这里应该是保存当前显示窗口的图片，相当于截图
 
             _camera.Capture(out var mat);
-            CurrentFrame = mat?.ToBitmapSource() is { } bitmap ? BitmapFrame.Create(bitmap) : null;
+            //CurrentFrame = mat?.ToBitmapSource() is { } bitmap ? BitmapFrame.Create(bitmap) : null;
         }
 
         [RelayCommand]
         void SaveCapture()
         {
-            if (CurrentFrame == null)
+            if (Frame == null)
             {
                 Console.WriteLine("No frame to save.");
                 return;
@@ -291,7 +299,7 @@ namespace DenseLight.ViewModels
                 }
                 var path = Path.Join(Root, $"{DateTime.Now:yyyyMMdd_HH_mm_ss}.TIF");
 
-                var image = CurrentFrame.ToMat();
+                var image = Frame;
                 image.SaveImage(path); // 使用TIF格式保存图像
                 image.Dispose(); // 释放Mat资源
 
@@ -366,27 +374,19 @@ namespace DenseLight.ViewModels
         [RelayCommand]
         void StartCapture()
         {
-            if (IsInit && IsCamOpen)
+            if (IsInit && CanAcquisition)
             {
                 Task.Run(() =>
                 {
-                    IsStartCapture = _camera.StartCapture();
-                    if (!IsStartCapture) { MessageBox.Show("相机视频流采集失败"); }
-                    IsStartAcquistion = true;
+                    IsAcquisition = _camera.StartCapture();
+                    if (!IsAcquisition) { MessageBox.Show("相机视频流采集失败"); }
+                    IsAcquisition = true;
+                    IsClosed = false;
                 });
             }
-            else if (IsStartCapture)
+            else if (IsAcquisition)
             {
-                IsStartCapture = !_camera.StopCapture();
-                IsStartAcquistion = false;
-            }
-            else { }
-        }
-
-        partial void OnIsStartAcquistionChanged(bool value) // 显示
-        {
-            if (IsStartAcquistion)
-            {
+                IsAcquisition = !_camera.StopCapture();              
             }
             else { }
         }
@@ -394,8 +394,10 @@ namespace DenseLight.ViewModels
         [RelayCommand]
         void StopCapture()
         {
-            _camera.StopCapture();
-            IsStartCapture = false;
+            _camera.StopCapture(); 
+            IsAcquisition = false;
+            CanAcquisition = true;
+            IsClosed = true;           
         }
     }
 }
