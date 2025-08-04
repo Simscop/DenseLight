@@ -13,6 +13,9 @@ using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.Messaging;
 using Zaber.Motion.Ascii;
+using OpenCvSharp;
+using DenseLight.Models;
+using OpenCvSharp.WpfExtensions;
 
 namespace DenseLight.ViewModels;
 
@@ -64,29 +67,16 @@ public partial class ShellViewModel : ObservableObject
         set => SetProperty(ref _currentFrame, value);
     }
 
-    private BitmapFrame _cameraImage;
-
-    public BitmapFrame CameraImage
-    {
-        get => _cameraImage;
-        set => SetProperty(ref _cameraImage, value);
-    }
-
-
-    // 图像更新方法（通过Dispatcher安全更新UI）
-    //public void UpdateImage(BitmapSource image)
-    //{
-    //    // 确保在UI线程更新
-    //    Application.Current.Dispatcher.Invoke(() =>
-    //    {
-    //        CameraImage = image;
-    //    });
-    //}
+    [ObservableProperty]
+    private BitmapFrame? _cameraImage;
 
     private readonly IImageProcessingService _imageProcessing;
     private CancellationTokenSource _autoFocusCts;
 
     private HikCameraService _hikCam;
+
+    private Mat mat;
+
 
     public ShellViewModel(IMessenger messenger)
     {
@@ -107,174 +97,170 @@ public partial class ShellViewModel : ObservableObject
         // 启动定期更新对焦分数
         //StartFocusScoreUpdate();
 
-        Coms = new ObservableCollection<string>(SerialPort.GetPortNames());
 
-        // 消息接收
-        _messenger.Register<Message.FrameUpdateMessage>(this, (r, m) =>
+        WeakReferenceMessenger.Default.Register<DisplayFrame, string>(this, "Display", (sender, message) =>
         {
-            if (m.Frame != null)
+            Application.Current.Dispatcher.BeginInvoke(() =>  // 异步更新，避免阻塞线程
             {
-                if (Application.Current.Dispatcher != null && !Application.Current.Dispatcher.CheckAccess())
+                if (message?.Image != null)
                 {
-                    // 使用Dispatcher在UI线程更新图像
-                    Application.Current.Dispatcher.Invoke(() =>
+                    using (var receivedFrame = message.Image)
                     {
-                        CameraImage = m.Frame;
-                    });
-                    // 在UI线程更新图像
-                    CameraImage = m.Frame;
+                        using (var cloned = receivedFrame.Clone())
+                        {
+                            var bitmapSource = cloned?.ToBitmapSource(); // 不是深拷贝
+
+                            CameraImage = BitmapFrame.Create(bitmapSource);
+
+                        }
+
+                    }
                 }
                 else
                 {
-                    CameraImage = m.Frame;
+                    CameraImage = null;
+                    return;
                 }
-            }
+            });
         });
 
-    }
+        #region 相机
+
+        //[RelayCommand]
+        //private void StartVideo()
+        //{
+        //    if (_isProcessing) return;
+
+        //    try
+        //    {
+        //        _videoProcessing.StartProcessing(_targetFps);
+        //        IsProcessing = true;
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        MessageBox.Show($"Failed to start video: {ex.Message}", "Error",
+        //            MessageBoxButton.OK, MessageBoxImage.Error);
+        //    }
+        //}
+
+        //[RelayCommand]
+        //private void StopVideo()
+        //{
+        //    if (!_isProcessing) return;
+
+        //    _videoProcessing.StopProcessing();
+        //    IsProcessing = false;
+        //}
+
+        //[RelayCommand]
+        //private void UpdateFrameRate()
+        //{
+        //    if (_isProcessing)
+        //    {
+        //        _videoProcessing.SetFrameRate(_targetFps);
+        //    }
+        //}
+
+        //private void OnFocusScoreUpdated(object? sender, double score)
+        //{
+        //    _dispatcher.Invoke(() =>
+        //    {
+        //        FocusScore = score;
+        //    });
+        //}
+
+        //private void OnFrameProcessed(object? sender, Bitmap bitmap)
+        //{
+        //    // 在UI线程更新图像
+        //    _dispatcher.Invoke(() =>
+        //    {
+        //        try
+        //        {
+        //            // 在UI线程更新图像
+        //            // 创建或更新WriteableBitmap
+        //            if (CurrentFrame == null ||
+        //                CurrentFrame.PixelWidth != bitmap.Width ||
+        //                CurrentFrame.PixelHeight != bitmap.Height)
+        //            {
+        //                CurrentFrame = new WriteableBitmap(
+        //                    bitmap.Width,
+        //                    bitmap.Height,
+        //                    96, 96,
+        //                    System.Windows.Media.PixelFormats.Bgr24,
+        //                    null);
+        //            }
+
+        //            // 锁定位图
+        //            CurrentFrame.Lock();
+
+        //            // 将Bitmap数据复制到WriteableBitmap
+        //            var sourceData = bitmap.LockBits(
+        //                new Rectangle(0, 0, bitmap.Width, bitmap.Height),
+        //                System.Drawing.Imaging.ImageLockMode.ReadOnly,
+        //                System.Drawing.Imaging.PixelFormat.Format24bppRgb);
+
+        //            CurrentFrame.WritePixels(
+        //                new Int32Rect(0, 0, bitmap.Width, bitmap.Height),
+        //                sourceData.Scan0,
+        //                bitmap.Width * bitmap.Height * 3,
+        //                bitmap.Width * 3);
+
+        //            bitmap.UnlockBits(sourceData);
+        //            CurrentFrame.Unlock();
+        //        }
+        //        catch (Exception ex)
+        //        {
+        //            // 处理图像显示错误
+        //        }
+        //        finally
+        //        {
+        //            bitmap.Dispose();
+        //        }
+        //    });
+        //}
+
+        //private async void StartFocusScoreUpdate()
+        //{
+        //    while (true)
+        //    {
+        //        if (!IsAutoFocusRunning)
+        //        {
+        //            try
+        //            {
+        //                _cameraService.Capture(out var mat);
+        //                using (var image = mat)
+        //                {
+        //                    FocusScore = _imageProcessing.CalculateFocusScore(image, CropSize);
+        //                }
+        //            }
+        //            catch (Exception ex)
+        //            {
+        //                _logger.LogException(ex, "Error updating focus score");
+        //            }
+        //        }
+        //        await Task.Delay(1000); // 每秒更新一次
+        //    }
+        //}
 
 
-    #region 相机
-
-    //[RelayCommand]
-    //private void StartVideo()
-    //{
-    //    if (_isProcessing) return;
-
-    //    try
-    //    {
-    //        _videoProcessing.StartProcessing(_targetFps);
-    //        IsProcessing = true;
-    //    }
-    //    catch (Exception ex)
-    //    {
-    //        MessageBox.Show($"Failed to start video: {ex.Message}", "Error",
-    //            MessageBoxButton.OK, MessageBoxImage.Error);
-    //    }
-    //}
-
-    //[RelayCommand]
-    //private void StopVideo()
-    //{
-    //    if (!_isProcessing) return;
-
-    //    _videoProcessing.StopProcessing();
-    //    IsProcessing = false;
-    //}
-
-    //[RelayCommand]
-    //private void UpdateFrameRate()
-    //{
-    //    if (_isProcessing)
-    //    {
-    //        _videoProcessing.SetFrameRate(_targetFps);
-    //    }
-    //}
-
-    //private void OnFocusScoreUpdated(object? sender, double score)
-    //{
-    //    _dispatcher.Invoke(() =>
-    //    {
-    //        FocusScore = score;
-    //    });
-    //}
-
-    //private void OnFrameProcessed(object? sender, Bitmap bitmap)
-    //{
-    //    // 在UI线程更新图像
-    //    _dispatcher.Invoke(() =>
-    //    {
-    //        try
-    //        {
-    //            // 在UI线程更新图像
-    //            // 创建或更新WriteableBitmap
-    //            if (CurrentFrame == null ||
-    //                CurrentFrame.PixelWidth != bitmap.Width ||
-    //                CurrentFrame.PixelHeight != bitmap.Height)
-    //            {
-    //                CurrentFrame = new WriteableBitmap(
-    //                    bitmap.Width,
-    //                    bitmap.Height,
-    //                    96, 96,
-    //                    System.Windows.Media.PixelFormats.Bgr24,
-    //                    null);
-    //            }
-
-    //            // 锁定位图
-    //            CurrentFrame.Lock();
-
-    //            // 将Bitmap数据复制到WriteableBitmap
-    //            var sourceData = bitmap.LockBits(
-    //                new Rectangle(0, 0, bitmap.Width, bitmap.Height),
-    //                System.Drawing.Imaging.ImageLockMode.ReadOnly,
-    //                System.Drawing.Imaging.PixelFormat.Format24bppRgb);
-
-    //            CurrentFrame.WritePixels(
-    //                new Int32Rect(0, 0, bitmap.Width, bitmap.Height),
-    //                sourceData.Scan0,
-    //                bitmap.Width * bitmap.Height * 3,
-    //                bitmap.Width * 3);
-
-    //            bitmap.UnlockBits(sourceData);
-    //            CurrentFrame.Unlock();
-    //        }
-    //        catch (Exception ex)
-    //        {
-    //            // 处理图像显示错误
-    //        }
-    //        finally
-    //        {
-    //            bitmap.Dispose();
-    //        }
-    //    });
-    //}
-
-    //private async void StartFocusScoreUpdate()
-    //{
-    //    while (true)
-    //    {
-    //        if (!IsAutoFocusRunning)
-    //        {
-    //            try
-    //            {
-    //                _cameraService.Capture(out var mat);
-    //                using (var image = mat)
-    //                {
-    //                    FocusScore = _imageProcessing.CalculateFocusScore(image, CropSize);
-    //                }
-    //            }
-    //            catch (Exception ex)
-    //            {
-    //                _logger.LogException(ex, "Error updating focus score");
-    //            }
-    //        }
-    //        await Task.Delay(1000); // 每秒更新一次
-    //    }
-    //}
+        //[RelayCommand]
+        //private void CancelAutoFocus()
+        //{
+        //    _autoFocusCts?.Cancel();
+        //}
 
 
-    //[RelayCommand]
-    //private void CancelAutoFocus()
-    //{
-    //    _autoFocusCts?.Cancel();
-    //}
+        #endregion
 
 
-    #endregion
+        //public void Dispose()
+        //{
 
+        //    _videoProcessing.FrameProcessed -= OnFrameProcessed;
+        //    _videoProcessing.FocusScoreUpdated -= OnFocusScoreUpdated;
+        //    _videoProcessing.Dispose();
+        //}
 
-    //public void Dispose()
-    //{
-
-    //    _videoProcessing.FrameProcessed -= OnFrameProcessed;
-    //    _videoProcessing.FocusScoreUpdated -= OnFocusScoreUpdated;
-    //    _videoProcessing.Dispose();
-    //}
-
-    ~ShellViewModel()
-    {
-        // Cleanup resources if necessary
-        //_motor.Stop();
     }
 
 }

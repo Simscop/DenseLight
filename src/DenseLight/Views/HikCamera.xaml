@@ -10,16 +10,7 @@
              mc:Ignorable="d" 
              d:DesignHeight="450" d:DesignWidth="800">
     <Grid>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="Auto"/>
-            <ColumnDefinition Width="*"/>
-        </Grid.ColumnDefinitions>
-
-        <Grid>
-            <liftui:ImageViewer BorderThickness="1" />
-        </Grid>
-
-        <Grid Grid.Column="1">
+        <Grid >
             <GroupBox 
                 BorderBrush="MediumPurple" 
                 Header="海康相机" 
@@ -36,6 +27,7 @@
                                 Command="{Binding CaptureCommand}"
                                 FontSize="12" 
                                 FontWeight="Bold" 
+                                Visibility="Collapsed"
                                 HorizontalAlignment="Stretch"/>
                         <Button Content="开始采集" 
                                 Command="{Binding StartCaptureCommand}"

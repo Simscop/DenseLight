@@ -33,7 +33,10 @@ namespace DenseLight.Devices
 
         private void OnFrameReceived(Mat frame)
         {
-            FrameReceived?.Invoke(frame);
+            using (var mat = frame)
+            {
+                FrameReceived?.Invoke(mat);
+            }
         }
         // 处理子类传来的帧
         private void HandleChildFrame(Mat frame)
@@ -73,7 +76,7 @@ namespace DenseLight.Devices
         public HikCameraService()
         {
             hikCam = new HikCamImplement(this);
-            hikCam.FrameReceived += HandleChildFrame;
+            hikCam.FrameReceived += OnFrameReceived;
         }
 
         //public HikCameraService(ILoggerService logger, HikCamImplement hikImp)
@@ -113,9 +116,7 @@ namespace DenseLight.Devices
 
         public double GetFrameRate() => hikCam.GetFrameRate();
 
-
         public double GetGain() => hikCam.GetGain();
-
 
         public bool Init()
         {
@@ -123,7 +124,6 @@ namespace DenseLight.Devices
             var isInit = hikCam.InitializeCam();
             return isInit;
         }
-
 
         public void SaveCapture(string path) => hikCam.SaveCapture(path);
 
@@ -643,8 +643,6 @@ namespace DenseLight.Devices
 
 
         // TODO 在里面开Thread抓取图片，还没有抓取到图像就return true了
-
-
         public bool StartCapture()
         {
             //mat = null;
@@ -698,26 +696,14 @@ namespace DenseLight.Devices
                             frame.Image.Width, frame.Image.Height, frame.Image.ImageSize, frame.FrameNum);
 
                         //Do some thing
-
                         using (var mat = ConvertToMat(frame.Image))
                         {
-                            var handler = FrameReceived;
-                            if (handler != null)
-                            {
-                                handler(mat.Clone());
-                            }
-                            //FrameReceived.Invoke(mat.Clone()); // 调用 FrameReceived 事件
-
+                            FrameReceived?.Invoke(mat.Clone());
                         }
-
-                        //localMat = ConvertToMat(frame.Image); // 将图像转换为Mat格式
                         //ch: 释放图像缓存  | en: Release the image buffer
                         streamGrabber.FreeImageBuffer(frame);
                     }
-
-
                 }
-
             })
             {
                 Name = "HikCameraReceiveThread",
@@ -754,19 +740,19 @@ namespace DenseLight.Devices
             {
                 //_logger.LogInformation("Stopped grabbing successfully.");
 
+                isGrabbing = false;
+                _parent._isStartCapture = false;
+                // 清空图像队列
+                while (_frameQueue.TryDequeue(out var frame))
+                {
+                    // 清空队列中的图像
+                    frame.Dispose();
+                }
+
+                //_logger.LogInformation("Cleared image queue and stopped capture.");
+                return true;
             }
 
-            isGrabbing = false;
-            _parent._isStartCapture = false;
-            // 清空图像队列
-            while (_frameQueue.TryDequeue(out var frame))
-            {
-                // 清空队列中的图像
-                frame.Dispose();
-            }
-
-            //_logger.LogInformation("Cleared image queue and stopped capture.");
-            return true;
         }
 
         /// <summary>
@@ -790,8 +776,6 @@ namespace DenseLight.Devices
                 ShowErrorMsg("Get image buffer failed", ret);
             }
         }
-
-
 
 
         public void ReceiveThreadProcess()
@@ -843,8 +827,6 @@ namespace DenseLight.Devices
             }
 
         }
-
-
 
         // 将System.Drawing.Bitmap转换为BitmapSource
         private BitmapSource ConvertToBitmapSource(Bitmap bitmap)

@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using DenseLight.BusinessLogic;
 using DenseLight.Devices;
+using DenseLight.Models;
 using DenseLight.Services;
 using Lift.UI.Tools;
 using Microsoft.WindowsAPICodePack.Dialogs;
@@ -27,19 +28,12 @@ namespace DenseLight.ViewModels
 
         private DateTime _lastUpdate = DateTime.MinValue;
 
-        private BitmapFrame? _currentFrame;
+        private Mat _frame;
 
-        public BitmapFrame? CurrentFrame
+        public Mat Frame
         {
-            get => _currentFrame;
-            set
-            {
-                if (SetProperty(ref _currentFrame, value))
-                {
-                    // 通知消息系统更新当前帧
-                    _messenger.Send(new Message.FrameUpdateMessage(value));
-                }
-            }
+            get { return _frame; }
+            set { SetProperty(ref _frame, value); }
         }
 
 
@@ -59,9 +53,16 @@ namespace DenseLight.ViewModels
         private string _root = "D:/DenseLight/Images"; // 默认保存路径
 
         [ObservableProperty]
-        private bool _isStartCapture = false; // 是否开始捕获
+        private volatile bool _isStartCapture = false; // 是否开始捕获
 
-        private bool _isInit;
+        [ObservableProperty]
+        private volatile bool _isInit = false;
+
+        [ObservableProperty]
+        private volatile bool _isCamOpen = false;
+
+        [ObservableProperty]
+        private volatile bool _isStartAcquistion = false;
 
         public CameraViewModel(ICameraService camera, IMessenger messenger)
         {
@@ -73,9 +74,8 @@ namespace DenseLight.ViewModels
 
             //_frameRefreshService = new FrameRefreshService(camera);
 
-            
             //_frameRefreshService = frameRefreshService ?? throw new ArgumentNullException(nameof(frameRefreshService));
-            _isInit = ConfigureCamera();
+            IsInit = ConfigureCamera();
 
             //_frameRefreshService.PropertyChanged += OnFrameRefreshService_PropertyChanged;
         }
@@ -85,29 +85,18 @@ namespace DenseLight.ViewModels
         {
             try
             {
-                // 将 OpenCV Mat 转换为 BitmapFrame
-                //BitmapFrame bitmapFrame = null;
-                //using (frame) // 确保 Mat 被释放
-                //{
-                //    bitmapFrame = ConvertMatToBitmapFrame(frame);
-                //}
-                // 限制33帧
-                if ((DateTime.Now - _lastUpdate).TotalMilliseconds < 33)
+                using (frame) // 确保原始frame在方法结束时dispose（即使异常）
                 {
-                    frame.Dispose();
-                    return;
-                }
-                _lastUpdate = DateTime.Now;
-                // 在 UI 线程更新
-                Application.Current.Dispatcher.Invoke(() =>
-                {
-                    using (frame)
+                    Task.Run(() =>
                     {
-                        //CurrentFrame = bitmapFrame;
-                        UpdateImage(frame);
-                    }
-                   
-                });
+                        var cloneFrame = frame.Clone();
+
+                        WeakReferenceMessenger.Default.Send<DisplayFrame, string>(new DisplayFrame()
+                        {
+                            Image = cloneFrame,
+                        }, "Display");
+                    });
+                }
             }
             catch (Exception ex)
             {
@@ -147,7 +136,8 @@ namespace DenseLight.ViewModels
 
                     _writeableBitmap.AddDirtyRect(new Int32Rect(0, 0, width, height));
                 }
-                finally {
+                finally
+                {
                     _writeableBitmap.Unlock();
                 }
 
@@ -233,20 +223,17 @@ namespace DenseLight.ViewModels
         [RelayCommand]
         void OpenCamera()
         {
-            try
+            if (IsInit)
             {
-                var isOpen = _camera.Open();
-                if (!isOpen) { return; }
+                var isOpen = _camera.Open(); // create device
+                if (!isOpen) { MessageBox.Show("相机打开失败，请检查相机是否连接"); return; }
                 ExposureTime = _camera.GetExposure();
                 Gain = _camera.GetGain();
                 FrameRate = _camera.GetFrameRate();
                 PixelFormat = _camera.GetPixelFormat();
+                IsCamOpen = true;
             }
-            catch (Exception ex)
-            {
-                // 处理打开摄像头时的异常
-                Console.WriteLine($"Error opening camera: {ex.Message}");
-            }
+            else { MessageBox.Show("相机未正确初始化"); }
         }
 
         [RelayCommand]
@@ -379,8 +366,29 @@ namespace DenseLight.ViewModels
         [RelayCommand]
         void StartCapture()
         {
-            IsStartCapture = _camera.StartCapture();
-            if (!IsStartCapture) { MessageBox.Show("camera is not open"); }
+            if (IsInit && IsCamOpen)
+            {
+                Task.Run(() =>
+                {
+                    IsStartCapture = _camera.StartCapture();
+                    if (!IsStartCapture) { MessageBox.Show("相机视频流采集失败"); }
+                    IsStartAcquistion = true;
+                });
+            }
+            else if (IsStartCapture)
+            {
+                IsStartCapture = !_camera.StopCapture();
+                IsStartAcquistion = false;
+            }
+            else { }
+        }
+
+        partial void OnIsStartAcquistionChanged(bool value) // 显示
+        {
+            if (IsStartAcquistion)
+            {
+            }
+            else { }
         }
 
         [RelayCommand]
