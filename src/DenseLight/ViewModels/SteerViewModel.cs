@@ -34,13 +34,17 @@ namespace DenseLight.ViewModels
         [ObservableProperty]
         public ObservableCollection<string> _coms;
 
+        [ObservableProperty] private double _x;
+
+        [ObservableProperty] public double _y;
+
         [ObservableProperty] private double _z;
 
         [ObservableProperty] private double _zStep = 1;
 
-        [ObservableProperty] private double _zTop = 0;
+        [ObservableProperty] private double _zTop = 22999900;
 
-        [ObservableProperty] private double _zBottom = 100000;
+        [ObservableProperty] private double _zBottom = 23000000;
 
         [ObservableProperty] public bool _isConnected = false;
 
@@ -104,6 +108,28 @@ namespace DenseLight.ViewModels
                 }
             });
 
+        }
+
+        [RelayCommand]
+        void ZStackScan()
+        {
+            (double x, double y, double z) = _motor.ReadPosition();
+
+            X = x; Y = y; Z = z;
+
+            _motor.SetPosition(X,Y,ZTop);
+
+            (X, Y, Z) = _motor.ReadPosition();         
+
+            int steps = (int)Math.Ceiling((int)(ZBottom - ZTop) / ZStep);
+
+            for (int i = 0; i <= steps; i++)
+            {
+                _motor.MoveRelative(0, 0, ZStep);
+
+                (X, Y, Z) = _motor.ReadPosition();
+            }
+            
         }
 
         private void Timer_Tick(object? sender, EventArgs e)
@@ -191,11 +217,12 @@ namespace DenseLight.ViewModels
             {
                 if (e.PropertyName == nameof(PositionUpdateService.Z))
                 {
-                    Z = _positionUpdateService.Z;
-                    PositionStatus = $"最后更新：{DateTime.Now:HH:ss.fff}";
+                    Z = _positionUpdateService.Z;                    
                 }
             });
         }
+
+        ~SteerViewModel() { _positionUpdateService.PropertyChanged -= OnPositionChanged; }
 
         public void Cleanup()
         {

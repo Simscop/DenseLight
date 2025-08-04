@@ -98,27 +98,27 @@
                 <UniformGrid Margin="1" Columns="2">
                     <StackPanel Margin="1">
                         <TextBlock
-                      HorizontalAlignment="Left"
-                      FontSize="12"
-                      FontWeight="Bold"
-                      Text="Z Top(nm)" />
+                            HorizontalAlignment="Left"
+                            FontSize="12"
+                            FontWeight="Bold"
+                            Text="Z Top(nm)" />
                         <TextBox
-                      Padding="5,0,0,0"
-                      VerticalAlignment="Center"
-                      FontSize="12"
-                      Text="{Binding ZTop}" />
+                            Padding="5,0,0,0"
+                            VerticalAlignment="Center"
+                            FontSize="12"
+                            Text="{Binding ZTop}" />
                     </StackPanel>
                     <StackPanel Margin="1">
                         <TextBlock
-                      HorizontalAlignment="Left"
-                      FontSize="12"
-                      FontWeight="Bold"
-                      Text="Z Buttom(nm)" />
+                            HorizontalAlignment="Left"
+                            FontSize="12"
+                            FontWeight="Bold"
+                            Text="Z Buttom(nm)" />
                         <TextBox
-                      Padding="5,0,0,0"
-                      VerticalAlignment="Center"
-                      FontSize="12"
-                      Text="{Binding ZBottom}" />
+                            Padding="5,0,0,0"
+                            VerticalAlignment="Center"
+                            FontSize="12"
+                            Text="{Binding ZBottom}" />
                     </StackPanel>
                 </UniformGrid>
 
@@ -154,6 +154,7 @@
                         Margin="5"
                         HorizontalAlignment="Stretch"
                         VerticalAlignment="Center"
+                        Command="{Binding ZStackScanCommand}"
                         Content="Z扫描"
                         FontSize="12"
                         FontWeight="Bold" />
