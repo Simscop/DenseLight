@@ -1,9 +1,12 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
 using DenseLight.BusinessLogic;
 using DenseLight.Devices;
+using DenseLight.Models;
 using DenseLight.Services;
 using Lift.UI.Tools;
+using OpenCvSharp;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -52,7 +55,18 @@ namespace DenseLight.ViewModels
 
         [ObservableProperty] private bool _isBusy = false;
 
+        [ObservableProperty] private int _currentStep; // 当前步数
+
+        [ObservableProperty] private double _progress = 0; // 进度 0-100%
+
         private double cropSize = 0.8;
+
+        private Mat _snapShot;
+        private readonly object _snapShotLock = new object();  // 新增：锁保护 _snapShot 访问
+        [ObservableProperty]
+        private bool isImageAvailable;  // 新增：是否已有有效图像，绑定到 UI
+
+        private CancellationTokenSource? _cts;  // 用于管理取消的源
 
         partial void OnZChanged(double value)
         {
@@ -94,6 +108,8 @@ namespace DenseLight.ViewModels
 
             ConnectionStatus = connectState;
 
+            IsConnected = true;
+
             // 代码块调度到UI线程中执行
             Application.Current.Dispatcher.Invoke(() =>
             {
@@ -111,25 +127,38 @@ namespace DenseLight.ViewModels
         }
 
         [RelayCommand]
-        void ZStackScan()
+        private async Task ZStackScan(CancellationToken token)
         {
-            (double x, double y, double z) = _motor.ReadPosition();
+            if (IsBusy) return;
+            IsBusy = true;
+            CurrentStep = 0;
 
-            X = x; Y = y; Z = z;
+            // 初步读取
+            (double x, double y, double z) = await _motor.ReadPositionAsync();
 
-            _motor.SetPosition(X, Y, ZTop);
+            // 设置初始位置到ZTop
+            await _motor.SetPositionAsync(x, y, z);
 
-            (X, Y, Z) = _motor.ReadPosition();
-
-            int steps = (int)Math.Ceiling((int)(ZBottom - ZTop) / ZStep);
+            // 计算步数（注意：ZBottom > ZTop 假设向下扫描）
+            int steps = (int)Math.Ceiling(Math.Abs(ZBottom - ZTop) / ZStep);  // 使用 Abs 防负值
 
             for (int i = 0; i <= steps; i++)
             {
-                _motor.MoveRelative(0, 0, ZStep);
+                token.ThrowIfCancellationRequested();  // 支持取消
 
-                (X, Y, Z) = _motor.ReadPosition();
+                await _motor.MoveRelativeAsync(0, 0, ZStep);
+
+                await Task.Delay(50);
+
+                UpdatePositionFromService();
+
+                CurrentStep = i;
+                Progress = (double)(i + 1) / (steps + 1) * 100;
+
+                // 小延迟防止过快循环
+                await Task.Delay(100, token);
             }
-
+            IsBusy = false;
         }
 
         private void Timer_Tick(object? sender, EventArgs e)
@@ -143,13 +172,22 @@ namespace DenseLight.ViewModels
         }
 
         [RelayCommand]
+        private void CancelScan()
+        {
+            if (_cts != null && !_cts.IsCancellationRequested)
+            {
+                _cts.Cancel();  // 触发取消信号                
+            }
+        }
+
+        [RelayCommand]
         void MoveZ(string symbol)
         {
             var value = ZStep * (symbol == "1" ? 1 : -1);
             _motor.MoveRelative(0, 0, value);
 
             (double x, double y, double z) = _motor.ReadPosition();
-            Z = double.IsNaN(z) ? 0 : z;
+            Z = double.IsNaN(z) ? 0 : z; // 刷新坐标
 
             //Task.Run(() =>
             //{
@@ -172,21 +210,37 @@ namespace DenseLight.ViewModels
         }
 
         [RelayCommand]
-        private async Task Focus(CancellationToken token)
+        private async Task Focus()
         {
-            if (IsBusy) return;
-
+            if (IsBusy || !IsImageAvailable)
+            {
+                // 修复：WPF 应用没有 MainPage，使用 MessageBox 显示提示
+                MessageBox.Show("无可用图像，请等待相机捕获或重试。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
             IsBusy = true;
 
             try
             {
-                double bestZ = await _autoFocusService.PerformAutoFocusAsync(ZTop, ZBottom, ZStep, cropSize, token);
-                _motor.MoveAbsolute(X, Y, Z);
+                _cts = new CancellationTokenSource();
+                Mat? localSnap;
+
+                lock (_snapShotLock)
+                {
+                    localSnap = _snapShot; // 克隆以防原图修改
+                }
+
+                double bestZ = await _autoFocusService.SmartAutoFocusAsync(localSnap, 10, 1, 0.8, 50, 2, _cts.Token);
+
                 Z = bestZ;
             }
             catch (Exception e) { }
-            finally { IsBusy = false; }
-
+            finally
+            {
+                IsBusy = false;
+                _cts?.Dispose();
+                _cts = null;
+            }
         }
 
         public SteerViewModel(PositionUpdateService positionUpdateService, IMotor motor, AutoFocusService autoFocusService)
@@ -201,6 +255,29 @@ namespace DenseLight.ViewModels
             UpdatePositionFromService(); // read position once 
 
             Coms = new ObservableCollection<string>(SerialPort.GetPortNames());
+
+            WeakReferenceMessenger.Default.Register<DisplayFrame, string>(this, "Display", (sender, message) =>
+            {
+                Application.Current.Dispatcher.BeginInvoke(() =>  // 异步更新，避免阻塞线程
+                {
+                    lock (_snapShotLock) // 保护写入
+                    {
+                        if (message?.Image != null && !message.Image.Empty())
+                        {
+                            _snapShot?.Dispose();
+                            _snapShot = message.Image.Clone();
+                            IsImageAvailable = true;
+                        }
+                        else
+                        {
+                            _snapShot?.Dispose();
+                            _snapShot = null;
+                            IsImageAvailable = false;
+                            return;
+                        }
+                    }
+                });
+            });
         }
 
         private void UpdatePositionFromService()

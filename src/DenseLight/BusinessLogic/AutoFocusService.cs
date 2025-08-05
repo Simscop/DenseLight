@@ -1,6 +1,8 @@
 ﻿using DenseLight.Services;
+using OpenCvSharp;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -25,62 +27,49 @@ namespace DenseLight.BusinessLogic
             _imageProcessingService = imageProcessing;
         }
 
-        public async Task<double> PerformAutoFocusAsync(double startZ,
+        public async Task<double> PerformAutoFocusAsync(Mat image, double startZ,
             double endZ, double stepSize, double cropSize = 0.8, CancellationToken cancellationToken = default)
         {
             _logger.LogInformation($"Starting auto-focus from {startZ} to {endZ} with step {stepSize}");
 
-            (double X, double Y, double Z) = _motor.ReadPosition();
+            var (X, Y, Z) = await _motor.ReadPositionAsync(); // 假设异步
             double currentZ = Z;
             double bestZ = currentZ;
+            double bestFocusScore = 0.0;
 
-            int steps = (int)Math.Ceiling((endZ - startZ) / stepSize);
+            // 计算绝对距离和步数，确保 steps 正
+            double distance = Math.Abs(endZ - startZ);
+            int steps = (int)Math.Ceiling(distance / Math.Abs(stepSize));  // 用 Abs 防负
 
-            // 方向判断
-            bool movingForward = stepSize > 0;
-            double sign = movingForward ? 1.0 : -1.0;
+            // 方向：正向 (startZ -> endZ) 根据 endZ > startZ 和 stepSize 符号
+            double effectiveStep = Math.Sign(endZ - startZ) * Math.Abs(stepSize);  // 统一步长方向         
 
-            _logger.LogInformation($"Auto-focus direction: {(movingForward ? "forward" : "backward")}, total steps: {steps}");
+            _logger.LogInformation($"Auto-focus direction: {(effectiveStep > 0 ? "forward" : "backward")}, total steps: {steps}");
 
             // Move to the starting position
-            _motor.SetPosition(X, Y, startZ);
-
-            double bestFocusScore = 0.0;
+            await _motor.SetPositionAsync(X, Y, startZ);
 
             for (int i = 0; i <= steps; i++)
             {
-                if (cancellationToken.IsCancellationRequested)
-                {
-                    _logger.LogInformation("Auto-focus operation cancelled.");
-                    return bestFocusScore;
-                }
-                // 当前Z位置
-                double z = startZ + i * stepSize * sign;
+                cancellationToken.ThrowIfCancellationRequested();  // 抛异常以统一处理
 
-                if ((movingForward && z > endZ) || (!movingForward && z < endZ))
+                // 计算当前Z（线性插值）
+                double z = startZ + i * effectiveStep;
+                if ((effectiveStep > 0 && z > endZ) || (effectiveStep < 0 && z < endZ))
                 {
                     z = endZ;
                 }
 
                 // 移动电机
-                _motor.SetPosition(X, Y, z);
+                await _motor.SetPositionAsync(X, Y, z);
 
                 // 等待稳定
-                await Task.Delay(50, cancellationToken); // 等待100毫秒，确保电机移动稳定
+                await Task.Delay(100, cancellationToken);
 
-                // Capture an image
-                var isCapture = _camera.Capture(out var image);
-
-                if (isCapture)
+                if (image != null && !image.Empty())
                 {
                     using (var img = image)
                     {
-                        if (img == null || img.Empty())
-                        {
-                            _logger.LogError($"Failed to capture image at Z = {z}");
-                            continue;
-                        }
-                        // Calculate focus score
                         double focusScore = _imageProcessingService.CalculateFocusScore(image, cropSize);
                         _logger.LogInformation($"Focus score at Z={z}: {focusScore:F3}");
                         // Check if this is the best focus score
@@ -91,101 +80,99 @@ namespace DenseLight.BusinessLogic
                             _logger.LogInformation($"New best focus score: {bestFocusScore:F3} at Z = {bestZ}");
                         }
                     }
-
-
                 }
-
-
-
+                else
+                {
+                    _logger.LogError($"Failed to capture image at Z = {z}");
+                }
             }
 
             // Move back to the best position found
-            _motor.SetPosition(X, Y, bestZ);
+            await _motor.SetPositionAsync(X, Y, bestZ);
             _logger.LogInformation($"Auto-focus completed. Best focus score: {bestFocusScore:F3} at Z = {bestZ}");
 
             return bestZ;
         }
 
-        // 智能对焦算法（使用爬山法优化）
+        // 将 SmartAutoFocusAsync 和 GetCurrentFocusScoreAsync 方法中的 CancellationTokenSource 参数类型改为 CancellationToken
         public async Task<double> SmartAutoFocusAsync(
+            Mat image,
             double initialStep = 1.0,
             double minStep = 0.05,
             double cropSize = 0.8,
-            CancellationToken cancellationToken = default)
+            int maxIterations = 50,
+            double stepReductionFactor = 2.0,
+            CancellationToken cancellationToken = default) // 修正参数类型
         {
-            try
+            _logger.LogInformation("Starting smart auto focus");
+
+            var (x, y, z) = await _motor.ReadPositionAsync();
+            double currentZ = z;
+            double bestZ = currentZ;
+            double bestScore = await GetCurrentFocusScoreAsync(image, cropSize, cancellationToken);
+            double currentScore = bestScore;
+            double step = initialStep;
+            int direction = 1;
+            int iterations = 0;
+            int failedAttempts = 0;
+
+            _logger.LogInformation($"Initial position: Z={currentZ:F3}, Score={currentScore:F3}");
+
+            while (step >= minStep && iterations < maxIterations)
             {
-                _logger.LogInformation("Starting smart auto focus");
+                cancellationToken.ThrowIfCancellationRequested(); // 修正为 CancellationToken
+                iterations++;
+                double newZ = currentZ + step * direction;
 
-                (double x, double y, double z) = _motor.ReadPosition();
-                double currentZ = z;
-                double currentScore = await GetCurrentFocusScore(cropSize);
-                double step = initialStep;
-                int direction = 1; // 1 for positive, -1 for negative
-                double bestZ = currentZ;
-                double bestScore = currentScore;
+                await _motor.SetPositionAsync(x, y, newZ);
 
-                _logger.LogInformation($"Initial position: Z={currentZ:F3}, Score={currentScore:F3}");
+                await Task.Delay(100, cancellationToken);
 
-                while (step >= minStep)
+                double newScore = await GetCurrentFocusScoreAsync(image, cropSize, cancellationToken);
+                _logger.LogDebug($"Trying Z={newZ:F3}, Score={newScore:F3}, Step={step:F3}, Dir={direction}");
+
+                if (newScore > currentScore)
                 {
-                    // 尝试正向移动
-                    double newZ = currentZ + step * direction;
-                    _motor.SetPosition(x, y, newZ);
-                    await Task.Delay(50, cancellationToken);
+                    currentZ = newZ;
+                    currentScore = newScore;
+                    failedAttempts = 0;
 
-                    double newScore = await GetCurrentFocusScore(cropSize);
-                    _logger.LogDebug($"Trying Z={newZ:F3}, Score={newScore:F3}, Step={step:F3}, Dir={direction}");
-
-                    if (newScore > currentScore)
+                    if (newScore > bestScore)
                     {
-                        // 找到更好的位置
-                        currentZ = newZ;
-                        currentScore = newScore;
-
-                        if (newScore > bestScore)
-                        {
-                            bestZ = newZ;
-                            bestScore = newScore;
-                            _logger.LogInformation($"New best position: Z={bestZ:F3}, Score={bestScore:F3}");
-                        }
-                    }
-                    else
-                    {
-                        // 反方向尝试
-                        direction *= -1;
-
-                        // 如果两个方向都不好，减小步长
-                        if (direction == -1)
-                        {
-                            step /= 2;
-                            _logger.LogInformation($"Reducing step size to {step:F3}");
-                        }
-                    }
-
-                    if (cancellationToken.IsCancellationRequested)
-                    {
-                        _logger.LogInformation("Smart auto focus cancelled");
-                        break;
+                        bestZ = newZ;
+                        bestScore = newScore;
+                        _logger.LogInformation($"New best position: Z={bestZ:F3}, Score={bestScore:F3}");
                     }
                 }
+                else
+                {
+                    direction *= -1;
+                    failedAttempts++;
 
-                // 移动到最佳位置
-                _motor.SetPosition(x, y, bestZ);
-                _logger.LogInformation($"Smart auto focus completed. Best Z: {bestZ:F3}, Score: {bestScore:F3}");
+                    if (failedAttempts >= 2)
+                    {
+                        step /= stepReductionFactor;
+                        failedAttempts = 0;
+                        _logger.LogInformation($"Reducing step size to {step:F3}");
+                    }
+                }
+            }
 
-                return bestZ;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogException(ex, "Smart auto focus failed");
-                throw;
-            }
+            await _motor.SetPositionAsync(x, y, bestZ);
+            _logger.LogInformation($"Smart auto focus completed. Best Z: {bestZ:F3}, Score: {bestScore:F3}, . Iterations: {iterations}");
+
+            return bestZ;
         }
 
-        private async Task<double> GetCurrentFocusScore(double cropSize)
+        // 修正 GetCurrentFocusScoreAsync 的参数类型
+        private async Task<double> GetCurrentFocusScoreAsync(Mat image, double cropSize, CancellationToken cancellationToken)
         {
-            _camera.Capture(out var image);
+            if (image == null || image.Empty())
+            {
+                _logger.LogWarning("Failed to capture image for focus score");
+                return 0.0;
+            }
+
             using (var img = image)
             {
                 return _imageProcessingService.CalculateFocusScore(image, cropSize);

@@ -10,9 +10,15 @@ namespace DenseLight.Services
 
         public (double X, double Y, double Z) ReadPosition(); // x y z
 
+        public Task<(double X, double Y, double Z)> ReadPositionAsync();
+
         public bool SetPosition(double x, double y, double z); // x y z
 
+        public Task SetPositionAsync(double x, double y, double z);
+
         public bool SetOffset(double x, double y, double z);
+
+        public Task SetOffsetAsync(double x, double y, double z);
 
         public void SetAcceleration();
 
@@ -24,7 +30,11 @@ namespace DenseLight.Services
 
         public bool MoveRelative(double x, double y, double z); // get error command
 
+        public Task MoveRelativeAsync(double x, double y, double z);
+
         public bool MoveAbsolute(double x, double y, double z);
+
+        public Task MoveAbsoluteAsync(double x, double y, double z);
 
         public bool SetContinuousMove();  // get error command
 

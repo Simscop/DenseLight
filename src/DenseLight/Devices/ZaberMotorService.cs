@@ -1,5 +1,6 @@
 ﻿using DenseLight.Services;
 using System.IO.Ports;
+using System.Windows;
 using Zaber.Motion.Ascii;
 
 namespace DenseLight.Devices
@@ -57,9 +58,11 @@ namespace DenseLight.Devices
         //    //_port = _sp.PortName;
         //}
 
-        public Zaber.Motion.Units Units { get; set; } = Zaber.Motion.Units.Length_Nanometres;
+        private Zaber.Motion.Units Units { get; set; } = Zaber.Motion.Units.Length_Nanometres;
 
-        public Zaber.Motion.Units vUnits { get; set; } = Zaber.Motion.Units.Velocity_NanometresPerSecond;
+        private Zaber.Motion.Units aUnits { get; set; } = Zaber.Motion.Units.Length_Nanometres;
+
+        private Zaber.Motion.Units vUnits { get; set; } = Zaber.Motion.Units.Velocity_NanometresPerSecond;
 
         /// <summary>
         /// 设置串口名称的公共方法。
@@ -138,6 +141,7 @@ namespace DenseLight.Devices
             X = _xAxis?.GetPosition(Units) ?? double.NaN;
             Y = _yAxis?.GetPosition(Units) ?? double.NaN;
             Z = _zAxis?.GetPosition(Units) ?? double.NaN;
+
             return (X, Y, Z);
         }
 
@@ -199,9 +203,9 @@ namespace DenseLight.Devices
         {
             try
             {
-                _xAxis?.MoveRelativeAsync(x, Units, true);
-                _yAxis?.MoveRelativeAsync(y, Units, true);
-                _zAxis?.MoveRelativeAsync(z, Units, true);
+                _xAxis?.MoveRelative(x, Units, true);
+                _yAxis?.MoveRelative(y, Units, true);
+                _zAxis?.MoveRelative(z, Units, true);
 
                 return true;
             }
@@ -230,6 +234,36 @@ namespace DenseLight.Devices
 
         }
 
+        public async Task<(double X, double Y, double Z)> ReadPositionAsync()
+        {
+            double x = _xAxis != null ? await _xAxis.GetPositionAsync(aUnits) : double.NaN;
+            double y = _yAxis != null ? await _yAxis.GetPositionAsync(aUnits) : double.NaN;
+            double z = _zAxis != null ? await _zAxis.GetPositionAsync(aUnits) : double.NaN;
+
+            X = x;
+            Y = y;
+            Z = z;
+
+            return (X, Y, Z);
+        }
+
+        public Task SetPositionAsync(double x, double y, double z) => MoveAbsoluteAsync(x, y, z);
+
+        public Task SetOffsetAsync(double x, double y, double z) => MoveRelativeAsync(x, y, z);
+
+        public async Task MoveRelativeAsync(double x, double y, double z)
+        {
+            await _xAxis.MoveRelativeAsync(x, aUnits, true);
+            await _yAxis.MoveRelativeAsync(y, aUnits, true);
+            await _zAxis.MoveRelativeAsync(z, aUnits, true);
+        }
+
+        public async Task MoveAbsoluteAsync(double x, double y, double z)
+        {
+            await _xAxis.MoveAbsoluteAsync(x, aUnits, true);
+            await _yAxis.MoveAbsoluteAsync(y, aUnits, true);
+            await _zAxis.MoveAbsoluteAsync(z, aUnits, true);
+        }
     }
 
 

@@ -36,6 +36,7 @@
             Grid.Row="1"
             BorderBrush="MediumPurple"
             Header="电动台"
+            IsEnabled="{Binding IsConnected}"
             Style="{DynamicResource ResourceKey=GroupBoxTab}">
             <StackPanel>
                 <UniformGrid Margin="1" Columns="2">
@@ -122,7 +123,7 @@
                     </StackPanel>
                 </UniformGrid>
 
-                <UniformGrid Margin="1" Columns="5">
+                <UniformGrid Margin="1" Columns="2">
                     <Button
                         Margin="5"
                         HorizontalAlignment="Stretch"
@@ -141,6 +142,9 @@
                         Content="停止"
                         FontSize="12"
                         FontWeight="Bold" />
+                </UniformGrid>
+
+                <UniformGrid Margin="1" Columns="4">
                     <Button
                         Margin="5"
                         HorizontalAlignment="Stretch"
@@ -166,6 +170,28 @@
                         Content="刷新坐标"
                         FontSize="12"
                         FontWeight="Bold"/>
+                    <Button
+                        Margin="5"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Center"
+                        Command="{Binding CancelScanCommand}"
+                        Content="取消扫描"
+                        FontWeight="Bold"
+                        FontSize="12"/>
+                </UniformGrid>
+
+                <UniformGrid Margin="1" Columns="2">
+                    <ProgressBar 
+                        Maximum="100" 
+                        Minimum="0" 
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Center"
+                        Value="{Binding Progress}" 
+                        Visibility="{Binding IsBusy}"/>
+                    <Label 
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Center"
+                        Content="{Binding CurrentStep, StringFormat='当前Z: {0:F2}'}"/>
                 </UniformGrid>
 
             </StackPanel>

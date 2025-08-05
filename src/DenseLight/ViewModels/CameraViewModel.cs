@@ -36,6 +36,7 @@ namespace DenseLight.ViewModels
             set { SetProperty(ref _frame, value); }
         }
 
+        private readonly object _frameLock = new object(); // 保护frame访问
 
         [ObservableProperty]
         private double _exposureTime = 100; // 默认曝光时间为100ms
@@ -84,13 +85,19 @@ namespace DenseLight.ViewModels
             {
                 var cloneFrame = frame.Clone();
 
-                using (frame) // 确保原始frame在方法结束时dispose（即使异常）
+                lock (_frameLock)
+                {
+                    Frame.Dispose();
+                    Frame = cloneFrame;
+                }
+
+                using (frame)
                 {
                     Task.Run(() =>
                     {
                         WeakReferenceMessenger.Default.Send<DisplayFrame, string>(new DisplayFrame()
                         {
-                            Image = cloneFrame,
+                            Image = cloneFrame.Clone(), // 再克隆一份给 Messenger，避免共享
                         }, "Display");
                     });
                 }
@@ -277,13 +284,21 @@ namespace DenseLight.ViewModels
         }
 
         [RelayCommand]
-        void SaveCapture()
+        Task SaveCaptureAsync()
         {
-            if (Frame == null)
+            Mat? localFrame;
+
+            lock (_frameLock)  // 获取本地拷贝
             {
-                Console.WriteLine("No frame to save.");
-                return;
+                if (Frame == null || Frame.Empty())
+                {
+                    Console.WriteLine("No frame to save.");
+                    MessageBox.Show("无可用图像，请等待相机捕获或重试。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return Task.CompletedTask;
+                }
+                localFrame = Frame.Clone();  // 克隆本地副本，避免影响原 Frame
             }
+
             try
             {
                 // 确保目录存在
@@ -293,19 +308,21 @@ namespace DenseLight.ViewModels
                 }
                 var path = Path.Join(Root, $"{DateTime.Now:yyyyMMdd_HH_mm_ss}.TIF");
 
-                var image = Frame;
-                image.SaveImage(path); // 使用TIF格式保存图像
-                image.Dispose(); // 释放Mat资源
+                localFrame.SaveImage(path); // 使用TIF格式保存图像               
 
                 Console.WriteLine($"Frame saved to {path}");
-
-                _camera.SaveCapture(path); // 调用相机服务保存图像
             }
             catch (Exception ex)
             {
                 // 处理保存图像时的异常
                 Console.WriteLine($"Error saving frame: {ex.Message}");
             }
+            finally
+            {
+                localFrame.Dispose();
+            }
+
+            return Task.CompletedTask;
         }
 
         [RelayCommand]

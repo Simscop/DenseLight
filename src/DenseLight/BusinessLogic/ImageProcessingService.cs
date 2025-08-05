@@ -6,15 +6,12 @@ namespace DenseLight.BusinessLogic
 {
     public class ImageProcessingService : IImageProcessingService
     {
-        private readonly ILoggerService _logger;        
-
+        private readonly ILoggerService _logger;
         public ImageProcessingService(ILoggerService logger)
         {
             _logger = logger;
         }
         public double CalculateFocusScore(Mat image) => CalculateFocusScore(image, 0.5);
-
-
         public double CalculateFocusScore(Mat image, double cropSize)
         {
             if (image == null || image.Empty())
@@ -29,7 +26,7 @@ namespace DenseLight.BusinessLogic
             int startX = (image.Width - cropWidth) / 2;
             int startY = (image.Height - cropHeight) / 2;
 
-            if (cropWidth <= 0 || cropHeight <= 0 || startX <= 0 || startY <= 0 )
+            if (cropWidth <= 0 || cropHeight <= 0 || startX <= 0 || startY <= 0)
             {
                 _logger.LogError("Invalid crop parameters:  " + cropSize);
                 return 0.0;
@@ -72,22 +69,19 @@ namespace DenseLight.BusinessLogic
                                 _logger.LogDebug($"Focus score calculated: {score}");
                                 return score;
                             }
-                            
+
                         }
 
                     }
 
 
-                }    
+                }
 
 
 
             }
 
         }
-
-
-       
 
     }
     // 将扩展方法 ToKernel 移动到一个非泛型静态类中
