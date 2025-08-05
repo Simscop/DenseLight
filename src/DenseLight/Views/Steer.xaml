@@ -122,7 +122,7 @@
                     </StackPanel>
                 </UniformGrid>
 
-                <UniformGrid Margin="1" Columns="4">
+                <UniformGrid Margin="1" Columns="5">
                     <Button
                         Margin="5"
                         HorizontalAlignment="Stretch"
@@ -158,6 +158,14 @@
                         Content="Z扫描"
                         FontSize="12"
                         FontWeight="Bold" />
+                    <Button
+                        Margin="5"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Center"
+                        Command="{Binding RefreshPositionCommand}"
+                        Content="刷新坐标"
+                        FontSize="12"
+                        FontWeight="Bold"/>
                 </UniformGrid>
 
             </StackPanel>

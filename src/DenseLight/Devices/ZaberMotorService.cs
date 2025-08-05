@@ -17,11 +17,6 @@ namespace DenseLight.Devices
 
     public class ZaberMotorService : IMotor
     {
-        // TODO 所有硬件使用异步调用，避免阻塞UI线程 添加位置边界检查和错误处理 使用CancellationToken支持取消操作
-        // var connection = Connection.OpenSerialPort("COM3");
-        // var device = connection.GetDevice(1);
-        // var axis = device.GetAxis(1);
-        // var axisGroup = new AxisGroup(new Axis[] { axis });
         public double X { get; set; }
         public double Y { get; set; }
         public double Z { get; set; }
@@ -115,7 +110,7 @@ namespace DenseLight.Devices
 
                 if (deviceList == null)
                 {
-                    connectionState = "Failed to connect to Zaber Motor Service. Please check the connection.";
+                    connectionState = "Zaber连接失败，请检查连接！";
                     return false;
                 }
                 else
@@ -126,13 +121,13 @@ namespace DenseLight.Devices
                     _yAxis = deviceList?[5].GetAxis(1);
                     _xAxis = deviceList?[5].GetAxis(2);
 
-                    connectionState = "Connected to Zaber Motor Service";
+                    connectionState = "Zaber连接成功！";
                     return true;
                 }
             }
             else
             {
-                connectionState = "Failed to connect to Zaber Motor Service. Please check the connection.";
+                connectionState = "Zaber连接失败，请检查连接！";
                 return false;
             }
 
@@ -140,8 +135,6 @@ namespace DenseLight.Devices
 
         public (double X, double Y, double Z) ReadPosition()
         {
-            // TODO 支持异步调用，按顺序请求坐标，在轴停止后调用 axisGroup.GetPosition(params unit)
-
             X = _xAxis?.GetPosition(Units) ?? double.NaN;
             Y = _yAxis?.GetPosition(Units) ?? double.NaN;
             Z = _zAxis?.GetPosition(Units) ?? double.NaN;

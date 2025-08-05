@@ -48,7 +48,7 @@ namespace DenseLight.ViewModels
 
         [ObservableProperty] public bool _isConnected = false;
 
-        [ObservableProperty] private string _connectionStatus = "Disconnected";
+        [ObservableProperty] private string _connectionStatus = "连接已断开";
 
         [ObservableProperty] private bool _isBusy = false;
 
@@ -88,7 +88,7 @@ namespace DenseLight.ViewModels
         [RelayCommand]
         void Connect()
         {
-            Console.WriteLine("连接");
+            ConnectionStatus = "正在连接中...";
 
             _motor.InitMotor(out string connectState);
 
@@ -117,9 +117,9 @@ namespace DenseLight.ViewModels
 
             X = x; Y = y; Z = z;
 
-            _motor.SetPosition(X,Y,ZTop);
+            _motor.SetPosition(X, Y, ZTop);
 
-            (X, Y, Z) = _motor.ReadPosition();         
+            (X, Y, Z) = _motor.ReadPosition();
 
             int steps = (int)Math.Ceiling((int)(ZBottom - ZTop) / ZStep);
 
@@ -129,7 +129,7 @@ namespace DenseLight.ViewModels
 
                 (X, Y, Z) = _motor.ReadPosition();
             }
-            
+
         }
 
         private void Timer_Tick(object? sender, EventArgs e)
@@ -175,7 +175,7 @@ namespace DenseLight.ViewModels
             try
             {
                 double bestZ = await _autoFocusService.PerformAutoFocusAsync(ZTop, ZBottom, ZStep, cropSize, token);
-
+                _motor.MoveAbsolute(X, Y, Z);
                 Z = bestZ;
             }
             catch (Exception e) { }
@@ -191,23 +191,15 @@ namespace DenseLight.ViewModels
 
             // 订阅位置更新事件
             _positionUpdateService.PropertyChanged += OnPositionChanged;
-            //SteerInit();
 
-            //_timer = new DispatcherTimer(priority: DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(100) };
+            UpdatePositionFromService(); // read position once 
 
             Coms = new ObservableCollection<string>(SerialPort.GetPortNames());
         }
 
-        private void SteerInit()
+        private void UpdatePositionFromService()
         {
-            IsConnected = _motor.InitMotor(out var connectState);
-
-            if (IsConnected)
-            {
-                _timer.Tick += Timer_Tick;
-                _timer.Start();
-                ConnectionStatus = connectState;
-            }
+            X = _positionUpdateService.X; Y = _positionUpdateService.Y; Z = _positionUpdateService.Z;
         }
 
         private void OnPositionChanged(object? sender, PropertyChangedEventArgs e)
@@ -217,9 +209,15 @@ namespace DenseLight.ViewModels
             {
                 if (e.PropertyName == nameof(PositionUpdateService.Z))
                 {
-                    Z = _positionUpdateService.Z;                    
+                    Z = _positionUpdateService.Z;
                 }
             });
+        }
+
+        [RelayCommand]
+        private void RefreshPosition()
+        {
+            UpdatePositionFromService();
         }
 
         ~SteerViewModel() { _positionUpdateService.PropertyChanged -= OnPositionChanged; }

@@ -8,9 +8,6 @@ using System.Threading.Tasks;
 
 namespace DenseLight.BusinessLogic
 {
-    // 1. 将 _updateTimer 字段声明为可为 null（加上 ?），以消除 CS8618。
-    // 2. 将 PropertyChanged 事件声明为可为 null（加上 ?），以消除 CS8618。
-
     public class PositionUpdateService : IDisposable
     {
         private readonly IMotor? _motor;
@@ -34,7 +31,7 @@ namespace DenseLight.BusinessLogic
             UpdatePosition();
 
             // 创建定时器
-            _updateTimer = new Timer(UpdatePositionCallback, null, TimeSpan.Zero, TimeSpan.FromMilliseconds(100));
+            _updateTimer = new Timer(UpdatePositionCallback, null, TimeSpan.Zero, TimeSpan.FromMilliseconds(1000));
         }
 
         private void UpdatePositionCallback(object? state)
