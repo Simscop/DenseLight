@@ -56,7 +56,7 @@ namespace DenseLight.ViewModels
 
         partial void OnZChanged(double value)
         {
-            const double max = 23000000; // nm
+            const double max = 23010000; // nm
             const double min = 0;
             if (value < min || value > max)
             {
@@ -66,7 +66,7 @@ namespace DenseLight.ViewModels
 
         partial void OnZBottomChanged(double value)
         {
-            const double max = 23000000; // nm
+            const double max = 23010000; // nm
             const double min = 0;
             if (value < min || value > max)
             {
@@ -76,7 +76,7 @@ namespace DenseLight.ViewModels
 
         partial void OnZTopChanged(double value)
         {
-            const double max = 23000000; // nm
+            const double max = 23010000; // nm
             const double min = 0;
             if (value < min || value > max)
             {
@@ -145,11 +145,17 @@ namespace DenseLight.ViewModels
         [RelayCommand]
         void MoveZ(string symbol)
         {
-            Task.Run(() =>
-            {
-                var value = ZStep * (symbol == "1" ? 1 : -1);
-                _motor.MoveRelative(0, 0, value);
-            });
+            var value = ZStep * (symbol == "1" ? 1 : -1);
+            _motor.MoveRelative(0, 0, value);
+
+            (double x, double y, double z) = _motor.ReadPosition();
+            Z = double.IsNaN(z) ? 0 : z;
+
+            //Task.Run(() =>
+            //{
+            //    var value = ZStep * (symbol == "1" ? 1 : -1);
+            //    _motor.MoveRelative(0, 0, value);
+            //});
 
         }
 
