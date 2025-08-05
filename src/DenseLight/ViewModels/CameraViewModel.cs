@@ -78,7 +78,7 @@ namespace DenseLight.ViewModels
             IsInit = ConfigureCamera();
         }
 
-
+        // 事件处理，接收连续流帧
         private void OnFrameReceived(Mat frame)
         {
             try
@@ -107,6 +107,32 @@ namespace DenseLight.ViewModels
             {
                 
             }
+
+            // 伪代码 接收连续流帧图
+            //// 对焦模式：计算清晰度，调整焦点
+            //double score = CalculateSharpness(frame);  // 计算清晰度
+
+            //if (score > _bestScore)
+            //{
+            //    _bestScore = score;
+            //    _bestPosition = _currentFocusPosition;
+            //}
+
+            //// 调整下一步焦点（e.g., 粗调到细调算法，如二分搜索）
+            //_currentFocusPosition += 10;  // 示例：步进调整
+            //AdjustFocus(_currentFocusPosition);  // 调用硬件 API 调整焦点
+
+            //// 检查是否完成（e.g., 达到阈值或迭代次数）
+            //if (IsAutoFocusComplete())
+            //{
+            //    _isAutoFocusing = false;
+            //    AdjustFocus(_bestPosition);  // 设置最佳位置
+            //    Console.WriteLine("AutoFocus completed at position: " + _bestPosition);
+            //}
+
+            //frame.Dispose();  // 释放帧
+
+
         }
 
         private WriteableBitmap _writeableBitmap;
