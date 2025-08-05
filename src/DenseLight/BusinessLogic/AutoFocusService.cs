@@ -30,6 +30,10 @@ namespace DenseLight.BusinessLogic
         public async Task<double> PerformAutoFocusAsync(Mat image, double startZ,
             double endZ, double stepSize, double cropSize = 0.8, CancellationToken cancellationToken = default)
         {
+            if (image == null) return 0.0;
+
+            var snap = image.Clone(); // 深拷贝
+
             _logger.LogInformation($"Starting auto-focus from {startZ} to {endZ} with step {stepSize}");
 
             var (X, Y, Z) = await _motor.ReadPositionAsync(); // 假设异步
@@ -39,7 +43,7 @@ namespace DenseLight.BusinessLogic
 
             // 计算绝对距离和步数，确保 steps 正
             double distance = Math.Abs(endZ - startZ);
-            int steps = (int)Math.Ceiling(distance / Math.Abs(stepSize));  // 用 Abs 防负
+            int steps = (int)Math.Round(distance / Math.Abs(stepSize));  // 用 Abs 防负
 
             // 方向：正向 (startZ -> endZ) 根据 endZ > startZ 和 stepSize 符号
             double effectiveStep = Math.Sign(endZ - startZ) * Math.Abs(stepSize);  // 统一步长方向         
@@ -53,24 +57,26 @@ namespace DenseLight.BusinessLogic
             {
                 cancellationToken.ThrowIfCancellationRequested();  // 抛异常以统一处理
 
+                if (i == 0) { continue; }
                 // 计算当前Z（线性插值）
                 double z = startZ + i * effectiveStep;
+
                 if ((effectiveStep > 0 && z > endZ) || (effectiveStep < 0 && z < endZ))
                 {
-                    z = endZ;
-                }
-
+                    currentZ = endZ;
+                }                
+               
                 // 移动电机
                 await _motor.SetPositionAsync(X, Y, z);
 
                 // 等待稳定
                 await Task.Delay(100, cancellationToken);
 
-                if (image != null && !image.Empty())
+                if (snap != null && !snap.Empty())
                 {
-                    using (var img = image)
+                    using (snap)
                     {
-                        double focusScore = _imageProcessingService.CalculateFocusScore(image, cropSize);
+                        double focusScore = _imageProcessingService.CalculateFocusScore(snap, cropSize);
                         _logger.LogInformation($"Focus score at Z={z}: {focusScore:F3}");
                         // Check if this is the best focus score
                         if (focusScore > bestFocusScore)
@@ -85,6 +91,9 @@ namespace DenseLight.BusinessLogic
                 {
                     _logger.LogError($"Failed to capture image at Z = {z}");
                 }
+
+                // Move back to the best position found
+                await _motor.SetPositionAsync(X, Y, bestZ);
             }
 
             // Move back to the best position found
@@ -104,12 +113,14 @@ namespace DenseLight.BusinessLogic
             double stepReductionFactor = 2.0,
             CancellationToken cancellationToken = default) // 修正参数类型
         {
+            if (image == null) return 0.0;
+            var snap = image.Clone();
             _logger.LogInformation("Starting smart auto focus");
 
             var (x, y, z) = await _motor.ReadPositionAsync();
             double currentZ = z;
             double bestZ = currentZ;
-            double bestScore = await GetCurrentFocusScoreAsync(image, cropSize, cancellationToken);
+            double bestScore = await GetCurrentFocusScoreAsync(snap, cropSize, cancellationToken);
             double currentScore = bestScore;
             double step = initialStep;
             int direction = 1;
@@ -128,7 +139,7 @@ namespace DenseLight.BusinessLogic
 
                 await Task.Delay(100, cancellationToken);
 
-                double newScore = await GetCurrentFocusScoreAsync(image, cropSize, cancellationToken);
+                double newScore = await GetCurrentFocusScoreAsync(snap, cropSize, cancellationToken);
                 _logger.LogDebug($"Trying Z={newZ:F3}, Score={newScore:F3}, Step={step:F3}, Dir={direction}");
 
                 if (newScore > currentScore)
@@ -173,9 +184,10 @@ namespace DenseLight.BusinessLogic
                 return 0.0;
             }
 
-            using (var img = image)
+            var img = image;
+            using (img)
             {
-                return _imageProcessingService.CalculateFocusScore(image, cropSize);
+                return _imageProcessingService.CalculateFocusScore(img, cropSize);
             }
         }
 

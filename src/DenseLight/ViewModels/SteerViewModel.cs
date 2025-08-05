@@ -230,7 +230,9 @@ namespace DenseLight.ViewModels
                     localSnap = _snapShot; // 克隆以防原图修改
                 }
 
-                double bestZ = await _autoFocusService.SmartAutoFocusAsync(localSnap, 10, 1, 0.8, 50, 2, _cts.Token);
+                double bestZ = await _autoFocusService.PerformAutoFocusAsync(localSnap,ZTop,ZBottom,ZStep,cropSize,_cts.Token);
+
+                //double bestZ = await _autoFocusService.SmartAutoFocusAsync(localSnap, 10, 1, 0.8, 50, 2, _cts.Token);
 
                 Z = bestZ;
             }

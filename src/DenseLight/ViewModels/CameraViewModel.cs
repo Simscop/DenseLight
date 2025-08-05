@@ -84,12 +84,7 @@ namespace DenseLight.ViewModels
             try
             {
                 var cloneFrame = frame.Clone();
-
-                lock (_frameLock)
-                {
-                    Frame.Dispose();
-                    Frame = cloneFrame;
-                }
+                Frame = cloneFrame;
 
                 using (frame)
                 {
@@ -97,15 +92,20 @@ namespace DenseLight.ViewModels
                     {
                         WeakReferenceMessenger.Default.Send<DisplayFrame, string>(new DisplayFrame()
                         {
-                            Image = cloneFrame.Clone(), // 再克隆一份给 Messenger，避免共享
+                            Image = cloneFrame, // 直接用frame会显示被dispose 再克隆一份给 Messenger，避免共享
                         }, "Display");
                     });
                 }
+                //cloneFrame.Dispose();
             }
             catch (Exception ex)
             {
                 // 错误处理
                 frame.Dispose();
+            }
+            finally
+            {
+                
             }
         }
 
