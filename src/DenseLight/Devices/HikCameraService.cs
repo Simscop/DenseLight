@@ -299,34 +299,48 @@ namespace DenseLight.Devices
         {
             var img = new Mat();
             mat = img;
-
-            // 配置相机参数 设置连续采集模式
-            int ret = _parent.device.Parameters.SetEnumValueByString("AcquisitionMode", "SingleFrame");
-            if (ret != MvError.MV_OK) { return false; }
+            
+            IFrameOut frameOut = null;
 
             if (_parent.device == null) { return false; }
 
-            _parent._isStartCapture = true;
+            // 配置相机参数  可注释之后看看
+            int ret = _parent.device.Parameters.SetEnumValueByString("AcquisitionMode", "SingleFrame");
+            if (ret != MvError.MV_OK) { return false; }
+
+            IEnumValue originTriggerMode;
+            ret = _parent.device.Parameters.GetEnumValue("TriggerMode", out  originTriggerMode);
+            if (ret == MvError.MV_OK)
+            {
+                ShowErrorMsg("获取触发模式失败", ret);
+                return false;
+            }                      
 
             // 1. 设置为触发模式 (TriggerMode=1: On)
-            ret = _parent.device.Parameters.SetEnumValue("TriggerMode", 1); // 设置触发模式为“On”
+            ret = _parent.device.Parameters.SetEnumValueByString("TriggerMode", "On");     
             if (ret != MvError.MV_OK)
             {
                 ShowErrorMsg("Set TriggerMode failed", ret);
                 return false;
-            }            
+            }
 
-            // 2. 设置触发源为软件触发 (TriggerSource=0: Software)
-            ret = _parent.device.Parameters.SetEnumValue("TriggerSource", 0);  // 0: Software
+            // 2. 设置触发源为软件触发
+            // ch:触发源选择:0 - Line0; | en:Trigger source select:0 - Line0;
+            //           1 - Line1;
+            //           2 - Line2;
+            //           3 - Line3;
+            //           4 - Counter;
+            //           7 - Software;
+            ret = _parent.device.Parameters.SetEnumValueByString("TriggerSource", "Software"); 
             if (ret != MvError.MV_OK)
             {
                 ShowErrorMsg("Set TriggerSource to Software failed", ret);
                 return false;
             }
-            // 3. 设置图像节点数量（可选，保持原值）
+            // 3. 设置图像节点数量（可选，保持原值） 可注释看看会不会影响软触发信号
             _parent.device.StreamGrabber.SetImageNodeNum(5); // 设置图像节点数量         
 
-            // 4. ch:开启抓图 | en: start grab image
+            // 4. ch:开启抓图 | en: start grab image 可注释看看会不会影响软触发信号
             ret = _parent.device.StreamGrabber.StartGrabbing(StreamGrabStrategy.LatestImageOnly);
             if (ret != MvError.MV_OK)
             {
@@ -338,13 +352,13 @@ namespace DenseLight.Devices
             ret = _parent.device.Parameters.SetCommandValue("TriggerSoftware");
             if (ret != MvError.MV_OK)
             {
+                ShowErrorMsg("触发失败", ret);
                 _parent.device.StreamGrabber.StopGrabbing();
                 return false;
             }
 
-            // 6. 获取触发的帧（超时 2000ms）
-            IFrameOut frame;
-            ret = _parent.device.StreamGrabber.GetImageBuffer(2000, out frame);
+            // 6. 获取触发的帧（超时 5000ms）            
+            ret = _parent.device.StreamGrabber.GetImageBuffer(5000, out frameOut);
             if (ret == MvError.MV_OK)
             {
                 _parent.device.StreamGrabber.StopGrabbing();
@@ -352,16 +366,16 @@ namespace DenseLight.Devices
             }
 
             // 7. 转换到 Mat
-            IImage cpImg = (IImage)frame.Image.Clone();
+            IImage cpImg = (IImage)frameOut.Image.Clone();
             ConvertToMat(cpImg, out mat);
             if (mat == null || mat.Empty()) { return false; }
 
             // 8. 释放帧缓冲
-            _parent.device.StreamGrabber.FreeImageBuffer(frame);
+            _parent.device.StreamGrabber.FreeImageBuffer(frameOut);
 
             // 9. 停止抓取并恢复连续模式（可选，如果后续需要）
             _parent.device.StreamGrabber.StopGrabbing();
-            _parent.device.Parameters.SetEnumValue("TriggerMode", 0); // 恢复为 Off
+            _parent.device.Parameters.SetEnumValueByString("TriggerMode", "Off"); // 恢复为 Off
 
             return true;
         }
@@ -421,7 +435,6 @@ namespace DenseLight.Devices
             }
 
         }
-
 
         public static BitmapSource ConvertToBitmapSource(IFrameOut frame)
         {
@@ -630,6 +643,9 @@ namespace DenseLight.Devices
                 //_logger.LogError("Device is not initialized.");
                 return false;
             }
+            // 关闭触发模式
+            _parent.device.Parameters.SetEnumValueByString("TriggerMode", "Off");
+
             // 配置相机参数 设置连续采集模式
             _parent.device.Parameters.SetEnumValueByString("AcquisitionMode", "Continuous");
 
@@ -758,7 +774,6 @@ namespace DenseLight.Devices
                 ShowErrorMsg("Get image buffer failed", ret);
             }
         }
-
 
         public void ReceiveThreadProcess()
         {
@@ -1005,7 +1020,6 @@ namespace DenseLight.Devices
                     throw new NotSupportedException($"Unsupported pixel format: {pixelType}");
             }
         }
-
 
     }
 
