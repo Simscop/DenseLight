@@ -299,17 +299,22 @@ namespace DenseLight.Devices
         {
             var img = new Mat();
             mat = img;
+
+            // 配置相机参数 设置连续采集模式
+            int ret = _parent.device.Parameters.SetEnumValueByString("AcquisitionMode", "SingleFrame");
+            if (ret != MvError.MV_OK) { return false; }
+
             if (_parent.device == null) { return false; }
 
             _parent._isStartCapture = true;
 
             // 1. 设置为触发模式 (TriggerMode=1: On)
-            int ret = _parent.device.Parameters.SetEnumValue("TriggerMode", 1); // 设置触发模式为“On”
+            ret = _parent.device.Parameters.SetEnumValue("TriggerMode", 1); // 设置触发模式为“On”
             if (ret != MvError.MV_OK)
             {
                 ShowErrorMsg("Set TriggerMode failed", ret);
                 return false;
-            }
+            }            
 
             // 2. 设置触发源为软件触发 (TriggerSource=0: Software)
             ret = _parent.device.Parameters.SetEnumValue("TriggerSource", 0);  // 0: Software
@@ -322,7 +327,7 @@ namespace DenseLight.Devices
             _parent.device.StreamGrabber.SetImageNodeNum(5); // 设置图像节点数量         
 
             // 4. ch:开启抓图 | en: start grab image
-            ret = _parent.device.StreamGrabber.StartGrabbing(StreamGrabStrategy.OneByOne);
+            ret = _parent.device.StreamGrabber.StartGrabbing(StreamGrabStrategy.LatestImageOnly);
             if (ret != MvError.MV_OK)
             {
                 ShowErrorMsg("Start grabbing failed", ret);
@@ -554,8 +559,7 @@ namespace DenseLight.Devices
                 //_logger.LogError("Device is not initialized.");
                 return;
             }
-            // 配置相机参数 设置连续采集模式
-            _parent.device.Parameters.SetEnumValueByString("AcquisitionMode", "Continuous");
+            
             _parent.device.Parameters.SetEnumValueByString("TriggerMode", "Off");
 
         }
@@ -626,6 +630,9 @@ namespace DenseLight.Devices
                 //_logger.LogError("Device is not initialized.");
                 return false;
             }
+            // 配置相机参数 设置连续采集模式
+            _parent.device.Parameters.SetEnumValueByString("AcquisitionMode", "Continuous");
+
             int ret = _parent.device.Parameters.SetEnumValue("TriggerMode", 0);
             if (ret != MvError.MV_OK)
             {

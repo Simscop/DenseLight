@@ -61,7 +61,9 @@ namespace DenseLight.ViewModels
 
         private double cropSize = 0.8;
 
+        [ObservableProperty]
         private Mat _snapShot;
+
         private readonly object _snapShotLock = new object();  // 新增：锁保护 _snapShot 访问
         [ObservableProperty]
         private bool isImageAvailable;  // 新增：是否已有有效图像，绑定到 UI
@@ -223,14 +225,14 @@ namespace DenseLight.ViewModels
             try
             {
                 _cts = new CancellationTokenSource();
-                Mat? localSnap;
+                //Mat? localSnap;
 
-                lock (_snapShotLock)
-                {
-                    localSnap = _snapShot.Clone(); // 克隆以防原图修改
-                }
+                //lock (_snapShotLock)
+                //{
+                //    localSnap = _snapShot.Clone(); // 克隆以防原图修改
+                //}
 
-                double bestZ = await _autoFocusService.PerformAutoFocusAsync(localSnap, ZTop, ZBottom, ZStep, cropSize, _cts.Token);
+                double bestZ = await _autoFocusService.PerformAutoFocusAsync(ZTop, ZBottom, ZStep, cropSize, _cts.Token);
 
                 //double bestZ = await _autoFocusService.SmartAutoFocusAsync(localSnap, 10, 1, 0.8, 50, 2, _cts.Token);
 
