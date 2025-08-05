@@ -297,96 +297,69 @@ namespace DenseLight.Devices
 
         public bool Capture(out Mat mat)
         {
-            if (_parent.device == null) { mat = null; return false; }
-            mat = null;
+            var img = new Mat();
+            mat = img;
+            if (_parent.device == null) { return false; }
 
             _parent._isStartCapture = true;
 
-            int ret = _parent.device.Parameters.SetEnumValue("TriggerMode", 0); // 设置触发模式为“On”
+            // 1. 设置为触发模式 (TriggerMode=1: On)
+            int ret = _parent.device.Parameters.SetEnumValue("TriggerMode", 1); // 设置触发模式为“On”
             if (ret != MvError.MV_OK)
             {
                 ShowErrorMsg("Set TriggerMode failed", ret);
-                mat = null;
                 return false;
             }
 
-            _parent.device.StreamGrabber.SetImageNodeNum(5); // 设置图像节点数量
+            // 2. 设置触发源为软件触发 (TriggerSource=0: Software)
+            ret = _parent.device.Parameters.SetEnumValue("TriggerSource", 0);  // 0: Software
+            if (ret != MvError.MV_OK)
+            {
+                ShowErrorMsg("Set TriggerSource to Software failed", ret);
+                return false;
+            }
+            // 3. 设置图像节点数量（可选，保持原值）
+            _parent.device.StreamGrabber.SetImageNodeNum(5); // 设置图像节点数量         
 
-            //_processThreadExit = false; // 确保线程可以运行
-            //_asyncProcessThread = new Thread(AsyncProcessThread);
-            //_asyncProcessThread.Start(); // 启动异步处理线程
-
-            //_parent.device.StreamGrabber.FrameGrabedEvent += FrameGrabedEventHandler; // 注册帧抓取事件处理程序
-
-            ret = _parent.device.StreamGrabber.StartGrabbing();
+            // 4. ch:开启抓图 | en: start grab image
+            ret = _parent.device.StreamGrabber.StartGrabbing(StreamGrabStrategy.OneByOne);
             if (ret != MvError.MV_OK)
             {
                 ShowErrorMsg("Start grabbing failed", ret);
-                mat = null;
                 return false;
             }
 
-            //_processThreadExit = true; // 通知异步处理线程退出
-            //_asyncProcessThread.Join(); // 等待异步处理线程结束
-            var streamGrabber = _parent.device.StreamGrabber;
-            _grabThreadExit = false;
-            Mat localMat = null;
-
-            Thread GrabThread = new Thread(() =>
-            {
-                while (!_grabThreadExit)
-                {
-                    IFrameOut frame;
-
-                    //ch：获取一帧图像 | en: Get one frame
-                    int ret = streamGrabber.GetImageBuffer(1000, out frame);
-                    if (ret != MvError.MV_OK)
-                    {
-                        Console.WriteLine("Get Image failed:{0:x8}", ret);
-                        continue;
-                    }
-                    else
-                    {
-                        Console.WriteLine("Get one frame: Width[{0}] , Height[{1}] , ImageSize[{2}], FrameNum[{3}]",
-                            frame.Image.Width, frame.Image.Height, frame.Image.ImageSize, frame.FrameNum);
-                        //Do some thing
-                        localMat = ConvertToMat(frame.Image); // 将图像转换为Mat格式
-                    }
-
-                    //ch: 释放图像缓存  | en: Release the image buffer
-                    streamGrabber.FreeImageBuffer(frame);
-                }
-
-            });
-            GrabThread.Start(_parent.device.StreamGrabber);
-
-            _grabThreadExit = true; // 通知线程退出
-            GrabThread.Join(); // 等待线程结束
-
-            ret = _parent.device.StreamGrabber.StopGrabbing();
+            // 5. 发送软件触发信号，捕获一帧 ch: 软触发 | en: Software trigger
+            ret = _parent.device.Parameters.SetCommandValue("TriggerSoftware");
             if (ret != MvError.MV_OK)
             {
-                ShowErrorMsg("Stop grabbing failed", ret);
-                mat = null;
+                _parent.device.StreamGrabber.StopGrabbing();
                 return false;
             }
-            mat = localMat;
-            _parent._isStartCapture = false;
 
-            //_parent.device.StreamGrabber.GetImageBuffer(1000, out frameOut);
+            // 6. 获取触发的帧（超时 2000ms）
+            IFrameOut frame;
+            ret = _parent.device.StreamGrabber.GetImageBuffer(2000, out frame);
+            if (ret == MvError.MV_OK)
+            {
+                _parent.device.StreamGrabber.StopGrabbing();
+                return false;
+            }
 
-            // 替换原有的 mat = new Mat((int)frameOut.Image.Height, (int)frameOut.Image.Width, MatType.CV_8UC3, frameOut.Image.PixelData);
-            // 使用 Mat.FromPixelData 静态方法来创建 Mat 实例
-            //mat = Mat.FromPixelData(
-            //    (int)frameOut.Image.Height,
-            //    (int)frameOut.Image.Width,
-            //    MatType.CV_8UC3,
-            //    frameOut.Image.PixelData
-            //);           
+            // 7. 转换到 Mat
+            IImage cpImg = (IImage)frame.Image.Clone();
+            ConvertToMat(cpImg, out mat);
+            if (mat == null || mat.Empty()) { return false; }
+
+            // 8. 释放帧缓冲
+            _parent.device.StreamGrabber.FreeImageBuffer(frame);
+
+            // 9. 停止抓取并恢复连续模式（可选，如果后续需要）
+            _parent.device.StreamGrabber.StopGrabbing();
+            _parent.device.Parameters.SetEnumValue("TriggerMode", 0); // 恢复为 Off
 
             return true;
         }
-
 
         void AsyncProcessThread()
         {
@@ -653,7 +626,7 @@ namespace DenseLight.Devices
                 //_logger.LogError("Device is not initialized.");
                 return false;
             }
-            int ret = _parent.device.Parameters.SetEnumValue("TriggerMode", 0); // 设置触发模式为“On”
+            int ret = _parent.device.Parameters.SetEnumValue("TriggerMode", 0);
             if (ret != MvError.MV_OK)
             {
                 ShowErrorMsg("Set TriggerMode failed", ret);
@@ -1001,6 +974,11 @@ namespace DenseLight.Devices
             // 4. 克隆数据（如果需要长期保存图像）
             // return mat.Clone();
             return mat;
+        }
+
+        public void ConvertToMat(IImage image, out Mat mat)
+        {
+            mat = ConvertToMat(image);
         }
 
         private MatType MapPixelTypeToMatType(MvGvspPixelType pixelType)

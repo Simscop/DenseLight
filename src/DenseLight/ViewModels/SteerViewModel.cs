@@ -227,10 +227,10 @@ namespace DenseLight.ViewModels
 
                 lock (_snapShotLock)
                 {
-                    localSnap = _snapShot; // 克隆以防原图修改
+                    localSnap = _snapShot.Clone(); // 克隆以防原图修改
                 }
 
-                double bestZ = await _autoFocusService.PerformAutoFocusAsync(localSnap,ZTop,ZBottom,ZStep,cropSize,_cts.Token);
+                double bestZ = await _autoFocusService.PerformAutoFocusAsync(localSnap, ZTop, ZBottom, ZStep, cropSize, _cts.Token);
 
                 //double bestZ = await _autoFocusService.SmartAutoFocusAsync(localSnap, 10, 1, 0.8, 50, 2, _cts.Token);
 
@@ -260,7 +260,7 @@ namespace DenseLight.ViewModels
 
             WeakReferenceMessenger.Default.Register<DisplayFrame, string>(this, "Display", (sender, message) =>
             {
-                Application.Current.Dispatcher.BeginInvoke(() =>  // 异步更新，避免阻塞线程
+                Application.Current.Dispatcher.Invoke(() =>  // 异步更新，避免阻塞线程
                 {
                     lock (_snapShotLock) // 保护写入
                     {
@@ -274,7 +274,7 @@ namespace DenseLight.ViewModels
                         {
                             _snapShot?.Dispose();
                             _snapShot = null;
-                            IsImageAvailable = false;
+                            IsImageAvailable = _snapShot != null;
                             return;
                         }
                     }

@@ -27,19 +27,17 @@ namespace DenseLight.BusinessLogic
             _imageProcessingService = imageProcessing;
         }
 
-        public async Task<double> PerformAutoFocusAsync(Mat image, double startZ,
+        public async Task<double> PerformAutoFocusAsync(double startZ,
             double endZ, double stepSize, double cropSize = 0.8, CancellationToken cancellationToken = default)
         {
-            if (image == null) return 0.0;
-
-            var snap = image.Clone(); // 深拷贝
+            if (stepSize == 0) return 0.0;
 
             _logger.LogInformation($"Starting auto-focus from {startZ} to {endZ} with step {stepSize}");
 
             var (X, Y, Z) = await _motor.ReadPositionAsync(); // 假设异步
             double currentZ = Z;
-            double bestZ = currentZ;
-            double bestFocusScore = 0.0;
+            double bestZ = startZ; // 初始化为起始z
+            double bestFocusScore = double.MinValue;
 
             // 计算绝对距离和步数，确保 steps 正
             double distance = Math.Abs(endZ - startZ);
@@ -53,6 +51,10 @@ namespace DenseLight.BusinessLogic
             // Move to the starting position
             await _motor.SetPositionAsync(X, Y, startZ);
 
+            await Task.Delay(200, cancellationToken);
+
+            Mat snap = new Mat();
+
             for (int i = 0; i <= steps; i++)
             {
                 cancellationToken.ThrowIfCancellationRequested();  // 抛异常以统一处理
@@ -64,13 +66,15 @@ namespace DenseLight.BusinessLogic
                 if ((effectiveStep > 0 && z > endZ) || (effectiveStep < 0 && z < endZ))
                 {
                     currentZ = endZ;
-                }                
-               
+                }
+
                 // 移动电机
                 await _motor.SetPositionAsync(X, Y, z);
 
                 // 等待稳定
                 await Task.Delay(100, cancellationToken);
+
+                _camera.Capture(out snap);
 
                 if (snap != null && !snap.Empty())
                 {
@@ -105,7 +109,6 @@ namespace DenseLight.BusinessLogic
 
         // 将 SmartAutoFocusAsync 和 GetCurrentFocusScoreAsync 方法中的 CancellationTokenSource 参数类型改为 CancellationToken
         public async Task<double> SmartAutoFocusAsync(
-            Mat image,
             double initialStep = 1.0,
             double minStep = 0.05,
             double cropSize = 0.8,
@@ -113,9 +116,10 @@ namespace DenseLight.BusinessLogic
             double stepReductionFactor = 2.0,
             CancellationToken cancellationToken = default) // 修正参数类型
         {
-            if (image == null) return 0.0;
-            var snap = image.Clone();
+
             _logger.LogInformation("Starting smart auto focus");
+            Mat snap = new Mat();
+            _camera.Capture(out snap);
 
             var (x, y, z) = await _motor.ReadPositionAsync();
             double currentZ = z;
@@ -138,6 +142,8 @@ namespace DenseLight.BusinessLogic
                 await _motor.SetPositionAsync(x, y, newZ);
 
                 await Task.Delay(100, cancellationToken);
+
+                _camera.Capture(out snap);
 
                 double newScore = await GetCurrentFocusScoreAsync(snap, cropSize, cancellationToken);
                 _logger.LogDebug($"Trying Z={newZ:F3}, Score={newScore:F3}, Step={step:F3}, Dir={direction}");
