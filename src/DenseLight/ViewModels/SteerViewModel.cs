@@ -39,7 +39,7 @@ namespace DenseLight.ViewModels
 
         [ObservableProperty] private double _x;
 
-        [ObservableProperty] public double _y;
+        [ObservableProperty] private double _y;
 
         [ObservableProperty] private double _z;
 
@@ -61,6 +61,8 @@ namespace DenseLight.ViewModels
 
         private double cropSize = 0.8;
 
+        const int ZLimit = 23500000;
+
         [ObservableProperty]
         private Mat _snapShot;
 
@@ -72,7 +74,7 @@ namespace DenseLight.ViewModels
 
         partial void OnZChanged(double value)
         {
-            const double max = 23500000; // nm
+            const double max = ZLimit; // nm
             const double min = 0;
             if (value < min || value > max)
             {
@@ -82,7 +84,7 @@ namespace DenseLight.ViewModels
 
         partial void OnZBottomChanged(double value)
         {
-            const double max = 23500000; // nm
+            const double max = ZLimit; // nm
             const double min = 0;
             if (value < min || value > max)
             {
@@ -92,7 +94,7 @@ namespace DenseLight.ViewModels
 
         partial void OnZTopChanged(double value)
         {
-            const double max = 23500000; // nm
+            const double max = ZLimit; // nm
             const double min = 0;
             if (value < min || value > max)
             {
@@ -225,12 +227,6 @@ namespace DenseLight.ViewModels
             try
             {
                 _cts = new CancellationTokenSource();
-                //Mat? localSnap;
-
-                //lock (_snapShotLock)
-                //{
-                //    localSnap = _snapShot.Clone(); // 克隆以防原图修改
-                //}
 
                 double bestZ = await _autoFocusService.PerformAutoFocusAsync(ZTop, ZBottom, ZStep, cropSize, _cts.Token);
 
