@@ -88,7 +88,7 @@ namespace DenseLight.ViewModels
                 lock (_frameLock)
                 {
                     Frame = cloneFrame;
-                }                
+                }
 
                 using (frame)
                 {
@@ -109,7 +109,7 @@ namespace DenseLight.ViewModels
             }
             finally
             {
-                
+
             }
 
             // 伪代码 接收连续流帧图
@@ -316,7 +316,11 @@ namespace DenseLight.ViewModels
         [RelayCommand]
         void SaveCapture()
         {
-            Mat? localFrame = Frame.Clone();
+            StopCapture(); // 停止视频流
+
+            _camera.Capture(out var mat);
+
+            Mat? localFrame = mat.Clone();
 
             if (localFrame == null || localFrame.Empty())
             {
