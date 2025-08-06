@@ -308,14 +308,7 @@ namespace DenseLight.Devices
             int ret = _parent.device.Parameters.SetEnumValueByString("AcquisitionMode", "SingleFrame");
             if (ret != MvError.MV_OK) { return false; }
 
-            IEnumValue originTriggerMode;
-            ret = _parent.device.Parameters.GetEnumValue("TriggerMode", out  originTriggerMode);
-            if (ret == MvError.MV_OK)
-            {
-                ShowErrorMsg("获取触发模式失败", ret);
-                return false;
-            }                      
-
+           
             // 1. 设置为触发模式 (TriggerMode=1: On)
             ret = _parent.device.Parameters.SetEnumValueByString("TriggerMode", "On");     
             if (ret != MvError.MV_OK)
@@ -323,6 +316,15 @@ namespace DenseLight.Devices
                 ShowErrorMsg("Set TriggerMode failed", ret);
                 return false;
             }
+
+            //IEnumValue originTriggerMode;
+            //ret = _parent.device.Parameters.GetEnumValue("TriggerMode", out originTriggerMode);
+            //if (ret == MvError.MV_OK)
+            //{
+            //    ShowErrorMsg("获取触发模式失败", ret);
+            //    return false;
+            //}
+
 
             // 2. 设置触发源为软件触发
             // ch:触发源选择:0 - Line0; | en:Trigger source select:0 - Line0;
@@ -359,7 +361,7 @@ namespace DenseLight.Devices
 
             // 6. 获取触发的帧（超时 5000ms）            
             ret = _parent.device.StreamGrabber.GetImageBuffer(5000, out frameOut);
-            if (ret == MvError.MV_OK)
+            if (ret != MvError.MV_OK)
             {
                 _parent.device.StreamGrabber.StopGrabbing();
                 return false;

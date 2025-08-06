@@ -84,7 +84,11 @@ namespace DenseLight.ViewModels
             try
             {
                 var cloneFrame = frame.Clone();
-                Frame = cloneFrame;
+
+                lock (_frameLock)
+                {
+                    Frame = cloneFrame;
+                }                
 
                 using (frame)
                 {
@@ -310,19 +314,13 @@ namespace DenseLight.ViewModels
         }
 
         [RelayCommand]
-        Task SaveCaptureAsync()
+        void SaveCapture()
         {
-            Mat? localFrame;
+            Mat? localFrame = Frame.Clone();
 
-            lock (_frameLock)  // 获取本地拷贝
+            if (localFrame == null || localFrame.Empty())
             {
-                if (Frame == null || Frame.Empty())
-                {
-                    Console.WriteLine("No frame to save.");
-                    MessageBox.Show("无可用图像，请等待相机捕获或重试。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
-                    return Task.CompletedTask;
-                }
-                localFrame = Frame.Clone();  // 克隆本地副本，避免影响原 Frame
+                return;
             }
 
             try
@@ -348,7 +346,6 @@ namespace DenseLight.ViewModels
                 localFrame.Dispose();
             }
 
-            return Task.CompletedTask;
         }
 
         [RelayCommand]
