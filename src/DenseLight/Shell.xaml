@@ -7,7 +7,7 @@
     xmlns:local="clr-namespace:DenseLight.Views"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:viewModel="clr-namespace:DenseLight.ViewModels"
-    Title="Shell"
+    Title="Simscop"
     Width="1200"
     Height="800"
     d:DataContext="{d:DesignInstance Type=viewModel:ShellViewModel}"
@@ -22,12 +22,12 @@
             </Grid.ColumnDefinitions>
 
             <Grid>
-                <liftui:ImageViewer 
+                <liftui:ImageViewer
                     x:Name="FrameViewer"
                     Margin="5"
                     BorderBrush="SeaGreen"
-                    ImageSource="{Binding CameraImage}"
-                    BorderThickness="1" />
+                    BorderThickness="1"
+                    ImageSource="{Binding CameraImage}" />
             </Grid>
 
             <Grid Grid.Column="1">

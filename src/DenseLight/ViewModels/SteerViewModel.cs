@@ -72,7 +72,7 @@ namespace DenseLight.ViewModels
 
         partial void OnZChanged(double value)
         {
-            const double max = 23010000; // nm
+            const double max = 23500000; // nm
             const double min = 0;
             if (value < min || value > max)
             {
@@ -82,7 +82,7 @@ namespace DenseLight.ViewModels
 
         partial void OnZBottomChanged(double value)
         {
-            const double max = 23010000; // nm
+            const double max = 23500000; // nm
             const double min = 0;
             if (value < min || value > max)
             {
@@ -92,7 +92,7 @@ namespace DenseLight.ViewModels
 
         partial void OnZTopChanged(double value)
         {
-            const double max = 23010000; // nm
+            const double max = 23500000; // nm
             const double min = 0;
             if (value < min || value > max)
             {
