@@ -4,9 +4,9 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:liftui="https://github.com/pchuan98/Lift.UI"
-    xmlns:oxy="http://oxyplot.org/wpf"
     xmlns:local="clr-namespace:DenseLight.Views"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:oxy="http://oxyplot.org/wpf"
     xmlns:viewModel="clr-namespace:DenseLight.ViewModels"
     d:DataContext="{d:DesignInstance Type=viewModel:SteerViewModel}"
     d:DesignHeight="550"
@@ -170,29 +170,29 @@
                         Command="{Binding RefreshPositionCommand}"
                         Content="刷新坐标"
                         FontSize="12"
-                        FontWeight="Bold"/>
+                        FontWeight="Bold" />
                     <Button
                         Margin="5"
                         HorizontalAlignment="Stretch"
                         VerticalAlignment="Center"
                         Command="{Binding CancelScanCommand}"
                         Content="取消扫描"
-                        FontWeight="Bold"
-                        FontSize="12"/>
+                        FontSize="12"
+                        FontWeight="Bold" />
                 </UniformGrid>
 
                 <UniformGrid Margin="1" Columns="2">
-                    <ProgressBar 
-                        Maximum="100" 
-                        Minimum="0" 
+                    <ProgressBar
                         HorizontalAlignment="Stretch"
                         VerticalAlignment="Center"
-                        Value="{Binding Progress}" 
-                        Visibility="{Binding IsBusy}"/>
-                    <Label 
+                        Maximum="100"
+                        Minimum="0"
+                        Visibility="{Binding IsBusy}"
+                        Value="{Binding Progress}" />
+                    <Label
                         HorizontalAlignment="Stretch"
                         VerticalAlignment="Center"
-                        Content="{Binding CurrentStep, StringFormat='当前Z: {0:F2}'}"/>
+                        Content="{Binding CurrentStep, StringFormat='当前Z: {0:F2}'}" />
                 </UniformGrid>
 
                 <UniformGrid Margin="1" Columns="2">
@@ -203,7 +203,7 @@
                             FontWeight="Bold"
                             Text="Z1 (nm)" />
                         <TextBox
-                            Padding="5, 0, 0, 0"
+                            Padding="5,0,0,0"
                             VerticalAlignment="Center"
                             FontSize="12"
                             Text="{Binding Z1}" />
@@ -215,7 +215,7 @@
                             FontWeight="Bold"
                             Text="Z2 (nm)" />
                         <TextBox
-                            Padding="5, 0, 0, 0"
+                            Padding="5,0,0,0"
                             VerticalAlignment="Center"
                             FontSize="12"
                             Text="{Binding Z2}" />
@@ -224,27 +224,30 @@
 
                 <UniformGrid Margin="1" Columns="2">
 
-                    <Button Margin="5"
-                            HorizontalAlignment="Stretch"
-                            VerticalAlignment="Center"
-                            Command="{Binding SetZ1Command}"
-                            Content="设置Z1"
-                            FontSize="12"
-                            FontWeight="Bold"/>
-                    <Button Margin="5"
-                            HorizontalAlignment="Stretch"
-                            VerticalAlignment="Center"
-                            Command="{Binding SetZ2Command}"
-                            Content="设置Z2"
-                            FontSize="12"
-                            FontWeight="Bold"/>
+                    <Button
+                        Margin="5"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Center"
+                        Command="{Binding SetZ1Command}"
+                        Content="设置Z1"
+                        FontSize="12"
+                        FontWeight="Bold" />
+                    <Button
+                        Margin="5"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Center"
+                        Command="{Binding SetZ2Command}"
+                        Content="设置Z2"
+                        FontSize="12"
+                        FontWeight="Bold" />
                 </UniformGrid>
 
                 <UniformGrid>
-                    <oxy:PlotView Model="{Binding FocusCurve}"
-                                 Height="100"
-                                 Margin="10"
-                                 VerticalAlignment="Center"/>
+                    <oxy:PlotView
+                        Height="300"
+                        Margin="10"
+                        VerticalAlignment="Center"
+                        Model="{Binding FocusCurve}" />
                 </UniformGrid>
             </StackPanel>
         </GroupBox>

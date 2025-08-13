@@ -52,9 +52,9 @@ namespace DenseLight.ViewModels
 
         [ObservableProperty] private double _zStep = 1;
 
-        [ObservableProperty] private double _zTop = 22999900;
+        [ObservableProperty] private double _zTop = 23412000;
 
-        [ObservableProperty] private double _zBottom = 23000000;
+        [ObservableProperty] private double _zBottom = 23418000;
 
         [ObservableProperty] public bool _isConnected = false;
 
@@ -70,9 +70,9 @@ namespace DenseLight.ViewModels
 
         [ObservableProperty] private bool _showFocusCurve = false;
 
-        private double cropSize = 0.8;
+        private double cropSize = 0.95;
 
-        const int ZLimit = 23500000;
+        const int ZLimit = 23900000;
 
         [ObservableProperty]
         private Mat _snapShot;
@@ -234,6 +234,8 @@ namespace DenseLight.ViewModels
             }
             IsBusy = true;
 
+            Z1 = 0; Z2 = 0;
+
             try
             {
                 _cts = new CancellationTokenSource();
@@ -244,7 +246,7 @@ namespace DenseLight.ViewModels
                 (double topZ, double bottomZ) = _autoFocusService.FindSurfacePeaks(scores); // 默认上表面Z值＜= 下表面Z值
                 Z1 = topZ; Z2 = bottomZ;
 
-                PlotFocusScores(scores); // 绘制曲线
+                PlotFocusScores(scores); // 绘制曲线                
 
             }
             catch (Exception e) { }
@@ -311,28 +313,35 @@ namespace DenseLight.ViewModels
 
 
         [RelayCommand]
-        private void SetZ1()
+        private async void SetZ1()
         {
-            if (Z1 < ZBottom || Z1 > ZTop)
-            {
-                MessageBox.Show("Z1值必须在ZBottom和ZTop之间。", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
-            }
+            //if (Z1 < ZBottom || Z1 > ZTop)
+            //{
+            //    MessageBox.Show("Z1值必须在ZBottom和ZTop之间。", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            //    return;
+            //}
             Z = Z1; // 设置当前Z位置为Z1
 
-            _motor.MoveAbsolute(0, 0, Z1);
+            // 初步读取
+            (double x, double y, double z) = await _motor.ReadPositionAsync();
+
+            _motor.MoveAbsolute(x, y, Z1);
         }
 
         [RelayCommand]
-        private void SetZ2()
+        private async void SetZ2()
         {
-            if (Z2 < ZBottom || Z2 > ZTop)
-            {
-                MessageBox.Show("Z2值必须在ZBottom和ZTop之间。", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
-            }
+            //if (Z2 < ZBottom || Z2 > ZTop)
+            //{
+            //    MessageBox.Show("Z2值必须在ZBottom和ZTop之间。", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            //    return;
+            //}
             Z = Z2; // 设置当前Z位置为Z2
-            _motor.MoveAbsolute(0, 0, Z2);
+
+            // 初步读取
+            (double x, double y, double z) = await _motor.ReadPositionAsync();
+
+            _motor.MoveAbsolute(x, y, Z2);
         }
 
         public SteerViewModel(PositionUpdateService positionUpdateService, IMotor motor, AutoFocusService autoFocusService)

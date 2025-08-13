@@ -414,6 +414,7 @@ namespace DenseLight.ViewModels
         {
             if (IsInit && CanAcquisition)
             {
+                Thread.Sleep(1000);
                 Task.Run(() =>
                 {
                     IsAcquisition = _camera.StartCapture();

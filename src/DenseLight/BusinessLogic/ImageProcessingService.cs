@@ -34,11 +34,11 @@ namespace DenseLight.BusinessLogic
             // 裁剪图像
             using (var roi = new Mat(image, new Rect(startX, startY, cropWidth, cropHeight)))
             {
-                var FocusMethod = "Sobel";
+                var FocusMethod = "CustomMethod";
 
                 switch (FocusMethod)
                 {
-                    case "Laplacian":
+                    case "Laplacian": //实测不好用
                         using (var laplacian = new Mat())
                         {
                             // 使用拉普拉斯算子计算图像的二阶导数

@@ -35,6 +35,8 @@ namespace DenseLight.BusinessLogic
         {
             if (stepSize == 0) MessageBox.Show("Step size cannot be zero.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
 
+            if (_focusScores.Count != 0) { _focusScores = new List<(double, double)>(); }
+
             _logger.LogInformation($"Starting auto-focus from {startZ} to {endZ} with step {stepSize}");
 
             var (X, Y, Z) = await _motor.ReadPositionAsync(); // 假设异步

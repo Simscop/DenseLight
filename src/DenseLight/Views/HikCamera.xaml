@@ -15,7 +15,7 @@
         <Grid>
             <GroupBox
                 BorderBrush="MediumPurple"
-                Header="海康相机"
+                Header="相机"
                 Style="{DynamicResource ResourceKey=GroupBoxTab}">
 
                 <StackPanel>
