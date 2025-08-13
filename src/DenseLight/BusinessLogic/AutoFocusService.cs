@@ -6,6 +6,7 @@ using System.ComponentModel;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows;
 
 namespace DenseLight.BusinessLogic
 {
@@ -27,10 +28,12 @@ namespace DenseLight.BusinessLogic
             _imageProcessingService = imageProcessing;
         }
 
-        public async Task<double> PerformAutoFocusAsync(double startZ,
+        List<(double z, double focusScore)> _focusScores = new List<(double, double)>();
+
+        public async Task<(double bestZ, List<(double z, double score)> focusScores)> PerformAutoFocusAsync(double startZ,
             double endZ, double stepSize, double cropSize = 0.8, CancellationToken cancellationToken = default)
         {
-            if (stepSize == 0) return 0.0;
+            if (stepSize == 0) MessageBox.Show("Step size cannot be zero.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
 
             _logger.LogInformation($"Starting auto-focus from {startZ} to {endZ} with step {stepSize}");
 
@@ -51,7 +54,7 @@ namespace DenseLight.BusinessLogic
             // Move to the starting position
             await _motor.SetPositionAsync(X, Y, startZ);
 
-            await Task.Delay(200, cancellationToken);
+            await Task.Delay(500, cancellationToken);
 
             Mat snap = new Mat();
 
@@ -63,17 +66,13 @@ namespace DenseLight.BusinessLogic
                 // 计算当前Z（线性插值）
                 double z = startZ + i * effectiveStep;
 
-                if ((effectiveStep > 0 && z > endZ) || (effectiveStep < 0 && z < endZ))
-                {
-                    currentZ = endZ;
-                }
-
                 // 移动电机
                 await _motor.SetPositionAsync(X, Y, z);
 
                 // 等待稳定
-                await Task.Delay(100, cancellationToken);
+                await Task.Delay(500, cancellationToken);
 
+                _camera.StopCapture(); // 停止当前捕获，确保不会干扰
                 _camera.Capture(out snap);
 
                 if (snap != null && !snap.Empty())
@@ -89,6 +88,9 @@ namespace DenseLight.BusinessLogic
                             bestZ = z;
                             _logger.LogInformation($"New best focus score: {bestFocusScore:F3} at Z = {bestZ}");
                         }
+
+                        // Store the focus score for this position
+                        _focusScores.Add((z, focusScore));
                     }
                 }
                 else
@@ -96,16 +98,98 @@ namespace DenseLight.BusinessLogic
                     _logger.LogError($"Failed to capture image at Z = {z}");
                 }
 
-                // Move back to the best position found
-                await _motor.SetPositionAsync(X, Y, bestZ);
             }
 
             // Move back to the best position found
             await _motor.SetPositionAsync(X, Y, bestZ);
+            // 等待稳定
+            await Task.Delay(500, cancellationToken);
+
             _logger.LogInformation($"Auto-focus completed. Best focus score: {bestFocusScore:F3} at Z = {bestZ}");
 
-            return bestZ;
+            return (bestZ, _focusScores);
         }
+
+
+
+        // --- 辅助函数 ---
+        public (double topZ, double bottomZ) FindSurfacePeaks(List<(double z, double score)> scores)
+        {
+            if (scores.Count < 3)
+            {
+                _logger.LogWarning("Not enough data points for peak detection. Using global best.");
+                return (scores[0].z, scores[^1].z);
+            }
+
+            // 1. 平滑数据 (移动平均)
+            var smoothed = SmoothData(scores.Select(s => s.score).ToList(), windowSize: 3);
+
+            // 2. 计算一阶导数 (中心差分)
+            List<double> derivatives = new List<double>();
+            for (int i = 1; i < smoothed.Count - 1; i++)
+            {
+                double diff = (smoothed[i + 1] - smoothed[i - 1]) / (scores[i + 1].z - scores[i - 1].z);
+                derivatives.Add(diff);
+            }
+
+            // 3. 寻找过零点 (从正变负)
+            List<int> peakIndices = new List<int>();
+            for (int i = 0; i < derivatives.Count - 1; i++)
+            {
+                if (derivatives[i] > 0 && derivatives[i + 1] < 0)
+                {
+                    peakIndices.Add(i + 1); // 对应原始数据的索引
+                }
+            }
+
+            // 4. 获取两个最高峰
+            if (peakIndices.Count < 2)
+            {
+                _logger.LogWarning($"Only found {peakIndices.Count} peaks. Using fallback strategy.");
+
+                // 回退策略：选择全局最高分和次高分
+                var ordered = scores.OrderByDescending(s => s.score).Take(2).ToList();
+                return ordered.Count == 2 ?
+                    (ordered[0].z, ordered[1].z) :
+                    (scores[0].z, scores[^1].z);
+            }
+
+            // 按分数排序峰值
+            var peakScores = peakIndices
+                .Select(idx => (idx, score: scores[idx].score))
+                .OrderByDescending(p => p.score)
+                .Take(2)
+                .ToList();
+
+            double z1 = scores[peakScores[0].idx].z;
+            double z2 = scores[peakScores[1].idx].z;
+
+            // 确保上表面Z值较小
+            return z1 < z2 ? (z1, z2) : (z2, z1);
+        }
+
+        private List<double> SmoothData(List<double> data, int windowSize)
+        {
+            List<double> smoothed = new List<double>();
+            int halfWindow = windowSize / 2;
+
+            for (int i = 0; i < data.Count; i++)
+            {
+                int start = Math.Max(0, i - halfWindow);
+                int end = Math.Min(data.Count - 1, i + halfWindow);
+
+                double sum = 0;
+                for (int j = start; j <= end; j++)
+                {
+                    sum += data[j];
+                }
+
+                smoothed.Add(sum / (end - start + 1));
+            }
+
+            return smoothed;
+        }
+
 
         // 将 SmartAutoFocusAsync 和 GetCurrentFocusScoreAsync 方法中的 CancellationTokenSource 参数类型改为 CancellationToken
         public async Task<double> SmartAutoFocusAsync(

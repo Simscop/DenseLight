@@ -7,6 +7,9 @@ using DenseLight.Models;
 using DenseLight.Services;
 using Lift.UI.Tools;
 using OpenCvSharp;
+using OxyPlot;
+using OxyPlot.Axes;
+using OxyPlot.Series;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -43,6 +46,10 @@ namespace DenseLight.ViewModels
 
         [ObservableProperty] private double _z;
 
+        [ObservableProperty] private double _z1 = 22999900;
+
+        [ObservableProperty] private double _z2 = 22999900;
+
         [ObservableProperty] private double _zStep = 1;
 
         [ObservableProperty] private double _zTop = 22999900;
@@ -58,6 +65,10 @@ namespace DenseLight.ViewModels
         [ObservableProperty] private int _currentStep; // 当前步数
 
         [ObservableProperty] private double _progress = 0; // 进度 0-100%
+
+        [ObservableProperty] private PlotModel _focusCurve;
+
+        [ObservableProperty] private bool _showFocusCurve = false;
 
         private double cropSize = 0.8;
 
@@ -218,7 +229,6 @@ namespace DenseLight.ViewModels
         {
             if (IsBusy || !IsImageAvailable)
             {
-                // 修复：WPF 应用没有 MainPage，使用 MessageBox 显示提示
                 MessageBox.Show("无可用图像，请等待相机捕获或重试。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
@@ -228,11 +238,14 @@ namespace DenseLight.ViewModels
             {
                 _cts = new CancellationTokenSource();
 
-                double bestZ = await _autoFocusService.PerformAutoFocusAsync(ZTop, ZBottom, ZStep, cropSize, _cts.Token);
+                var (bestZ, focusScores) = await _autoFocusService.PerformAutoFocusAsync(ZTop, ZBottom, ZStep, cropSize, _cts.Token);
+                var scores = focusScores;
 
-                //double bestZ = await _autoFocusService.SmartAutoFocusAsync(localSnap, 10, 1, 0.8, 50, 2, _cts.Token);
+                (double topZ, double bottomZ) = _autoFocusService.FindSurfacePeaks(scores); // 默认上表面Z值＜= 下表面Z值
+                Z1 = topZ; Z2 = bottomZ;
 
-                Z = bestZ;
+                PlotFocusScores(scores); // 绘制曲线
+
             }
             catch (Exception e) { }
             finally
@@ -241,6 +254,85 @@ namespace DenseLight.ViewModels
                 _cts?.Dispose();
                 _cts = null;
             }
+        }
+
+        /// <summary>
+        /// 绘制对焦曲线的方法
+        /// </summary>
+        /// <param name="focusScores"></param>
+        public void PlotFocusScores(List<(double z, double score)> focusScores)
+        {
+            // 创建基础图表模型
+            var plotModel = new PlotModel
+            {
+                Title = "对焦分数曲线",
+                TitleFontSize = 12,
+                PlotAreaBorderThickness = new OxyThickness(1, 0, 0, 1),
+                PlotMargins = new OxyThickness(50, 10, 10, 40)
+            };
+
+            // 添加坐标轴
+            plotModel.Axes.Add(new LinearAxis
+            {
+                Position = AxisPosition.Bottom,
+                Title = "Z位置",
+                AxislineStyle = LineStyle.Solid,
+                MajorGridlineStyle = LineStyle.Dash,
+                MinorGridlineStyle = LineStyle.Dot
+            });
+
+            plotModel.Axes.Add(new LinearAxis
+            {
+                Position = AxisPosition.Left,
+                Title = "对焦分数",
+                AxislineStyle = LineStyle.Solid,
+                MajorGridlineStyle = LineStyle.Dash,
+                MinorGridlineStyle = LineStyle.Dot
+            });
+
+            // 创建数据系列
+            var series = new LineSeries
+            {
+                Color = OxyColors.SteelBlue,
+                StrokeThickness = 1.5,
+                MarkerType = MarkerType.None
+            };
+
+            // 添加数据点
+            foreach (var point in focusScores)
+            {
+                series.Points.Add(new DataPoint(point.z, point.score));
+            }
+
+            plotModel.Series.Add(series);
+            FocusCurve = plotModel;
+        }
+
+
+
+        [RelayCommand]
+        private void SetZ1()
+        {
+            if (Z1 < ZBottom || Z1 > ZTop)
+            {
+                MessageBox.Show("Z1值必须在ZBottom和ZTop之间。", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+            Z = Z1; // 设置当前Z位置为Z1
+
+            _motor.MoveAbsolute(0, 0, Z1);
+        }
+
+        [RelayCommand]
+        private void SetZ2()
+        {
+            if (Z2 < ZBottom || Z2 > ZTop)
+            {
+                MessageBox.Show("Z2值必须在ZBottom和ZTop之间。", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+            Z = Z2; // 设置当前Z位置为Z2
+            _motor.MoveAbsolute(0, 0, Z2);
         }
 
         public SteerViewModel(PositionUpdateService positionUpdateService, IMotor motor, AutoFocusService autoFocusService)
