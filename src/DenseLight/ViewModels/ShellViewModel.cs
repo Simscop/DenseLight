@@ -35,7 +35,6 @@ public partial class ShellViewModel : ObservableObject
 
     private readonly IMessenger _messenger = WeakReferenceMessenger.Default;
 
-
     [ObservableProperty] private string _errorMessage = string.Empty;
 
     [ObservableProperty]
@@ -68,13 +67,11 @@ public partial class ShellViewModel : ObservableObject
     }
 
     [ObservableProperty]
-    private BitmapFrame? _cameraImage;
+    private BitmapSource? _cameraImage;
 
     private readonly IImageProcessingService _imageProcessing;
     private CancellationTokenSource _autoFocusCts;
-
     private HikCameraService _hikCam;
-
     private Mat mat;
 
 
@@ -83,46 +80,34 @@ public partial class ShellViewModel : ObservableObject
         _messenger = messenger ?? throw new ArgumentNullException(nameof(messenger));
         _logger = new FileLoggerService();
         _motor = App.Current.Services.GetRequiredService<SteerViewModel>();
-        //_hikCamera = App.Current.Services.GetRequiredService<CameraViewModel>();
-        //_cameraService = new HikCameraService(_logger);
-        //_videoProcessing = new VideoProcessingService(_cameraService, _logger, _imageProcessing);
-
-        //_hikCam = hikCamera ?? throw new ArgumentNullException(nameof(hikCamera));
 
         _dispatcher = Dispatcher.CurrentDispatcher;
 
-        // 注册事件
-        //_videoProcessing.FrameProcessed += OnFrameProcessed;
-        //_videoProcessing.FocusScoreUpdated += OnFocusScoreUpdated;
-        // 启动定期更新对焦分数
-        //StartFocusScoreUpdate();
+        WeakReferenceMessenger.Default.Register<DisplayFrame, string>(this, "Display", Receive);
 
+        //WeakReferenceMessenger.Default.Register<DisplayFrame, string>(this, "Display", (sender, message) =>
+        //{
+        //    Application.Current.Dispatcher.BeginInvoke(() =>  // 异步更新，避免阻塞线程
+        //    {
+        //        if (message?.Image != null)
+        //        {
+        //            using (var receivedFrame = message.Image)
+        //            {
+        //                using (var cloned = receivedFrame.Clone())
+        //                {
+        //                    var bitmapSource = cloned?.ToBitmapSource(); // 不是深拷贝
 
-        WeakReferenceMessenger.Default.Register<DisplayFrame, string>(this, "Display", (sender, message) =>
-        {
-            Application.Current.Dispatcher.BeginInvoke(() =>  // 异步更新，避免阻塞线程
-            {
-                if (message?.Image != null)
-                {
-                    using (var receivedFrame = message.Image)
-                    {
-                        using (var cloned = receivedFrame.Clone())
-                        {
-                            var bitmapSource = cloned?.ToBitmapSource(); // 不是深拷贝
-
-                            CameraImage = BitmapFrame.Create(bitmapSource);
-
-                        }
-
-                    }
-                }
-                else
-                {
-                    CameraImage = null;
-                    return;
-                }
-            });
-        });
+        //                    CameraImage = BitmapFrame.Create(bitmapSource);
+        //                }
+        //            }
+        //        }
+        //        else
+        //        {
+        //            CameraImage = null;
+        //            return;
+        //        }
+        //    });
+        //});
 
         #region 相机
 
@@ -263,4 +248,11 @@ public partial class ShellViewModel : ObservableObject
 
     }
 
+    private void Receive(object recipient, DisplayFrame message)
+    {
+        Application.Current.Dispatcher.Invoke(() =>
+        {
+            CameraImage = message.Source;
+        });
+    }
 }

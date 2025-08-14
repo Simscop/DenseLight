@@ -19,7 +19,7 @@ using System.Windows.Threading;
 
 namespace DenseLight.ViewModels
 {
-    public partial class CameraViewModel : ObservableObject
+    public partial class CameraViewModel : ObservableObject, IDisposable
     {
         private readonly ICameraService _camera;
         private readonly FrameRefreshService _frameRefreshService;
@@ -28,13 +28,7 @@ namespace DenseLight.ViewModels
 
         private DateTime _lastUpdate = DateTime.MinValue;
 
-        private Mat _frame;
-
-        public Mat Frame
-        {
-            get { return _frame; }
-            set { SetProperty(ref _frame, value); }
-        }
+        [ObservableProperty] private BitmapSource _image;
 
         private readonly object _frameLock = new object(); // 保护frame访问
 
@@ -68,6 +62,8 @@ namespace DenseLight.ViewModels
         [ObservableProperty]
         private volatile bool _IsAcquisition = false;
 
+        private bool _disposed = false;
+
         public CameraViewModel(ICameraService camera, IMessenger messenger)
         {
             _messenger = messenger;
@@ -83,26 +79,20 @@ namespace DenseLight.ViewModels
         {
             try
             {
-                var cloneFrame = frame.Clone();
-
-                lock (_frameLock)
-                {
-                    Frame = cloneFrame;
-                }
-
                 using (frame)
                 {
-                    Task.Run(() =>
+                    // 确保线程安全访问 转换为托管资源
+                    var bitmapSource = frame.ToBitmapSource();
+                    if (bitmapSource.CanFreeze)
+                        bitmapSource.Freeze(); // 允许跨线程访问
+
+                    WeakReferenceMessenger.Default.Send<DisplayFrame, string>(new DisplayFrame()
                     {
-                        WeakReferenceMessenger.Default.Send<DisplayFrame, string>(new DisplayFrame()
-                        {
-                            Image = cloneFrame, // 直接用frame会显示被dispose 再克隆一份给 Messenger，避免共享
-                        }, "Display");
-                    });
+                        Source = bitmapSource,
+                    }, "Display");
                 }
-                //cloneFrame.Dispose();
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 // 错误处理
                 frame.Dispose();
@@ -111,32 +101,6 @@ namespace DenseLight.ViewModels
             {
 
             }
-
-            // 伪代码 接收连续流帧图
-            //// 对焦模式：计算清晰度，调整焦点
-            //double score = CalculateSharpness(frame);  // 计算清晰度
-
-            //if (score > _bestScore)
-            //{
-            //    _bestScore = score;
-            //    _bestPosition = _currentFocusPosition;
-            //}
-
-            //// 调整下一步焦点（e.g., 粗调到细调算法，如二分搜索）
-            //_currentFocusPosition += 10;  // 示例：步进调整
-            //AdjustFocus(_currentFocusPosition);  // 调用硬件 API 调整焦点
-
-            //// 检查是否完成（e.g., 达到阈值或迭代次数）
-            //if (IsAutoFocusComplete())
-            //{
-            //    _isAutoFocusing = false;
-            //    AdjustFocus(_bestPosition);  // 设置最佳位置
-            //    Console.WriteLine("AutoFocus completed at position: " + _bestPosition);
-            //}
-
-            //frame.Dispose();  // 释放帧
-
-
         }
 
         private WriteableBitmap _writeableBitmap;
@@ -246,14 +210,14 @@ namespace DenseLight.ViewModels
         //    }
         //}
 
-        public void Cleanup()
-        {
-            //_frameRefreshService.PropertyChanged -= OnFrameRefreshService_PropertyChanged;
-            _frameRefreshService.Dispose();
-            _hikCamera.FrameReceived -= OnFrameReceived;
-            _writeableBitmap = null;
-            CloseCamera();
-        }
+        //public void Cleanup()
+        //{
+        //    //_frameRefreshService.PropertyChanged -= OnFrameRefreshService_PropertyChanged;
+        //    _frameRefreshService.Dispose();
+        //    _hikCamera.FrameReceived -= OnFrameReceived;
+        //    _writeableBitmap = null;
+        //    CloseCamera();
+        //}
 
         [RelayCommand]
         void OpenCamera()
@@ -305,7 +269,7 @@ namespace DenseLight.ViewModels
             //    Console.WriteLine("Failed to set exposure or gain.");
             //    return;
             //}
-            if (!_isInit) { return; }
+            if (!IsInit) { return; }
 
             // TODO 这里应该是保存当前显示窗口的图片，相当于截图
 
@@ -437,6 +401,21 @@ namespace DenseLight.ViewModels
             IsAcquisition = false;
             CanAcquisition = true;
             IsClosed = true;
+        }
+
+        public void Dispose()
+        {
+            if (_disposed) return;
+            _disposed = true;
+
+            _camera.FrameReceived -= OnFrameReceived;
+            WeakReferenceMessenger.Default.Unregister<DisplayFrame, string>(this, "Display");
+            //Cleanup();
+            _camera.Dispose();
+            _messenger.Cleanup();
+            //_frameRefreshService.Dispose();
+            //_hikCamera.Dispose();
+            GC.SuppressFinalize(this);
         }
     }
 }

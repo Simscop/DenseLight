@@ -75,7 +75,7 @@ namespace DenseLight.ViewModels
         const int ZLimit = 23900000;
 
         [ObservableProperty]
-        private Mat _snapShot;
+        private BitmapSource _snapShot;
 
         private readonly object _snapShotLock = new object();  // 新增：锁保护 _snapShot 访问
         [ObservableProperty]
@@ -357,27 +357,41 @@ namespace DenseLight.ViewModels
 
             Coms = new ObservableCollection<string>(SerialPort.GetPortNames());
 
-            WeakReferenceMessenger.Default.Register<DisplayFrame, string>(this, "Display", (sender, message) =>
+            WeakReferenceMessenger.Default.Register<DisplayFrame, string>(this, "Display", Receive);
+
+            //WeakReferenceMessenger.Default.Register<DisplayFrame, string>(this, "Display", (sender, message) =>
+            //{
+            //    Application.Current.Dispatcher.Invoke(() =>  // 异步更新，避免阻塞线程
+            //    {
+            //        lock (_snapShotLock) // 保护写入
+            //        {
+            //            if (message?.Image != null && !message.Image.Empty())
+            //            {
+            //                _snapShot?.Dispose();
+            //                _snapShot = message.Image.Clone();
+            //                IsImageAvailable = true;
+            //            }
+            //            else
+            //            {
+            //                _snapShot?.Dispose();
+            //                _snapShot = null;
+            //                IsImageAvailable = _snapShot != null;
+            //                return;
+            //            }
+            //        }
+            //    });
+            //});
+        }
+
+        private void Receive(object recipient, DisplayFrame message)
+        {
+            Application.Current.Dispatcher.Invoke(() =>
             {
-                Application.Current.Dispatcher.Invoke(() =>  // 异步更新，避免阻塞线程
+                lock (_snapShotLock) // 保护写入
                 {
-                    lock (_snapShotLock) // 保护写入
-                    {
-                        if (message?.Image != null && !message.Image.Empty())
-                        {
-                            _snapShot?.Dispose();
-                            _snapShot = message.Image.Clone();
-                            IsImageAvailable = true;
-                        }
-                        else
-                        {
-                            _snapShot?.Dispose();
-                            _snapShot = null;
-                            IsImageAvailable = _snapShot != null;
-                            return;
-                        }
-                    }
-                });
+                    SnapShot = message.Source;
+                    IsImageAvailable = SnapShot != null;
+                }
             });
         }
 
