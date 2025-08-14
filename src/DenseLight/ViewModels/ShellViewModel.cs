@@ -67,7 +67,7 @@ public partial class ShellViewModel : ObservableObject
     }
 
     [ObservableProperty]
-    private BitmapSource? _cameraImage;
+    private BitmapFrame? _cameraImage;
 
     private readonly IImageProcessingService _imageProcessing;
     private CancellationTokenSource _autoFocusCts;
@@ -252,7 +252,7 @@ public partial class ShellViewModel : ObservableObject
     {
         Application.Current.Dispatcher.Invoke(() =>
         {
-            CameraImage = message.Source;
+            CameraImage = BitmapFrame.Create(message.Source);
         });
     }
 }
