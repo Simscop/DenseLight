@@ -83,8 +83,8 @@ namespace DenseLight.ViewModels
                 {
                     // 确保线程安全访问 转换为托管资源
                     var bitmapSource = frame.ToBitmapSource();
-                    if (bitmapSource.CanFreeze)
-                        bitmapSource.Freeze(); // 允许跨线程访问
+                    if (bitmapSource.CanFreeze) // 检查是否可以冻结
+                        bitmapSource.Freeze(); // 冻结对象使其跨线程安全
 
                     WeakReferenceMessenger.Default.Send<DisplayFrame, string>(new DisplayFrame()
                     {

@@ -252,7 +252,23 @@ public partial class ShellViewModel : ObservableObject
     {
         Application.Current.Dispatcher.Invoke(() =>
         {
-            CameraImage = BitmapFrame.Create(message.Source);
+            if (message.Source != null)
+            {
+                CameraImage = BitmapFrame.Create(message.Source);
+
+                if (CameraImage.CanFreeze && !CameraImage.IsFrozen)
+                    CameraImage.Freeze(); // 冻结以确保线程安全访问
+            }
+            else
+            {
+                CameraImage = null;
+            }
+
         });
+    }
+
+    public void Dispose()
+    {
+        WeakReferenceMessenger.Default.Unregister<DisplayFrame, string>(this, "Display");
     }
 }
