@@ -22,10 +22,16 @@ namespace DenseLight.Views
     /// </summary>
     public partial class HikCamera : UserControl
     {
+        private readonly IServiceScope _scope;
         public HikCamera()
         {
             InitializeComponent();
-            DataContext = App.Current.Services.GetRequiredService<CameraViewModel>();
+
+            _scope = App.Current.Services.CreateScope();
+
+            DataContext = _scope.ServiceProvider.GetRequiredService<CameraViewModel>();
+
+
         }
     }
 }

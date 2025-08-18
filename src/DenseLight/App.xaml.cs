@@ -58,6 +58,10 @@ namespace DenseLight
             // Register Messenger for MVVM communication
             services.AddSingleton<IMessenger>(new WeakReferenceMessenger());
 
+            // 作用域生命周期
+            services.AddScoped<CameraViewModel>();
+            services.AddScoped<SteerViewModel>();
+
             return services.BuildServiceProvider();
         }
 

@@ -34,6 +34,8 @@ namespace DenseLight.ViewModels
 
         private ZaberMotorService? _zaberDevice;
 
+        private bool _disposed = false;
+
         [ObservableProperty]
         private string _selectedCom = string.Empty;
 
@@ -112,7 +114,6 @@ namespace DenseLight.ViewModels
                 ZTop = Math.Clamp(value, min, max);
             }
         }
-
 
         [RelayCommand]
         void Connect()
@@ -310,8 +311,6 @@ namespace DenseLight.ViewModels
             FocusCurve = plotModel;
         }
 
-
-
         [RelayCommand]
         private async void SetZ1()
         {
@@ -423,6 +422,25 @@ namespace DenseLight.ViewModels
         public void Cleanup()
         {
             _positionUpdateService.PropertyChanged -= OnPositionChanged;
+        }
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (_disposed) return;
+            if (disposing)
+            {
+                // 释放托管资源
+                _positionUpdateService.PropertyChanged -= OnPositionChanged;
+                WeakReferenceMessenger.Default.Unregister<DisplayFrame, string>(this, "Display");
+            }
+            // 释放非托管资源（如果有）
+            _disposed = true;
         }
     }
 }

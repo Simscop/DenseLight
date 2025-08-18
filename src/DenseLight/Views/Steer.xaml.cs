@@ -22,10 +22,56 @@ namespace DenseLight.Views
     /// </summary>
     public partial class Steer : UserControl
     {
+        private readonly SteerViewModel _viewModel;
+        private bool _disposed = false; // 用于跟踪是否已释放资源
         public Steer()
         {
             InitializeComponent();
-            DataContext = App.Current.Services.GetRequiredService<SteerViewModel>();
+            _viewModel = App.Current.Services.GetRequiredService<SteerViewModel>();
+            DataContext = _viewModel;
+
+            Unloaded += OnUnloaded;
+        }
+
+        private void Steer_Unloaded(object sender, RoutedEventArgs e)
+        {
+            throw new NotImplementedException();
+        }
+
+        private void OnUnloaded(object sender, RoutedEventArgs e)
+        {
+            Dispose();
+        }
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (_disposed) return;
+
+            if (disposing)
+            {
+                // 释放托管资源
+                Unloaded -= OnUnloaded;
+
+                // 释放 ViewModel
+                if (_viewModel is IDisposable disposableViewModel)
+                {
+                    disposableViewModel.Dispose();
+                }
+            }
+
+            _disposed = true;
+        }
+
+        // 可选：析构函数作为安全网
+        ~Steer()
+        {
+            Dispose(false);
         }
     }
 }
